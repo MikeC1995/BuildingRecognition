@@ -1,0 +1,560 @@
+/////////////////////////////////////////////////////////////////////////////
+//
+// Individual Project
+// Detect and display features in image using SURF
+//
+/////////////////////////////////////////////////////////////////////////////
+
+// header inclusion
+#include <stdio.h>
+#include <string>
+#include "surf.hpp"
+
+using namespace cv;
+
+/* Create a SURF keypoint detector.
+**
+**    Out:  detector
+*/
+void createSurfDetector(Ptr<xfeatures2d::SURF> &detector, double hessianThreshold,
+    int numOctaves, int numOctaveLayers, int extended, int upright)
+{
+  /*  Parameter descriptions
+  **
+  **  hessianThreshold
+  **  The higher the threshold, fewer keypoints are detected
+  **  Too low a value = weak feature points which have less repeatability.
+  **  Too high a value = not be enough features to describe the image.
+  **
+  **  numOctaves
+  **  Determines the size of the features the detector looks for.
+  **  For large features, use a larger value.
+  **
+  **  numOctaveLayers
+  **  Determines the range of feature sizes that can be detected.
+  **  More layers = detect features of many different sizes
+  **
+  **  extended
+  **  0 = 64 dimension descriptors; 1 = 128 dimensions
+  **
+  **  upright
+  **  0 = compute orientation of each feature; 1 = do not compute orientation
+  */
+
+  detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+}
+
+/* Create a SURF feature detector, and using it calculate keypoints and
+** descriptors the input images.
+*/
+/* Single image.
+**  In:   image
+**  Out:  keypoints, descriptors
+*/
+void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors)
+{
+  //The higher the threshold, fewer keypoints are detected
+  //Too low a value = weak feature points which have less repeatability.
+  //Too high a value = not be enough features to describe the image.
+  double hessianThreshold = 400.0;
+
+  //Determines the size of the features the detector looks for.
+  //For large features, use a larger value.
+  int numOctaves = 4;
+
+  //Determines the range of feature sizes that can be detected.
+  //More layers = detect features of many different sizes
+  int numOctaveLayers = 2;
+
+  //0 = 64 dimension descriptors; 1 = 128 dimensions
+  int extended = 1;
+
+  //0 = compute orientation of each feature; 1 = do not compute orientation
+  int upright = 0;
+
+  Ptr<xfeatures2d::SURF> detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+
+  //detect keypoints and compute descriptors using the detector
+  detector->detectAndCompute(image, noArray(), keypoints, descriptors, false);
+
+  waitKey(0);
+}
+
+/* Single query image, multiple training images.
+**  In:   queryImage, trainingImages, detector
+**  Out:  queryKeypoints, queryDescriptors, trainingKeypoints, trainingDescriptors
+*/
+void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors,
+  std::vector<Mat> &trainingImages, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors,
+  Ptr<xfeatures2d::SURF> &detector)
+{
+  detector->detect(queryImage, queryKeypoints);
+  detector->detect(trainingImages, trainingKeypoints);
+  detector->compute(queryImage, queryKeypoints, queryDescriptors);
+  detector->compute(trainingImages, trainingKeypoints, trainingDescriptors);
+}
+
+/* Use a FLANN-based matcher to find the single best match in the training set
+** for every query descriptor.
+*/
+/* Single image.
+**    In:   queryDescriptors, trainingDescriptors
+**    Out:  matches
+*/
+void match(Mat &queryDescriptors, Mat &trainingDescriptors, std::vector<DMatch> &matches)
+{
+  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
+  matcher->match(queryDescriptors, trainingDescriptors, matches);
+}
+
+/* Single query image, multiple training images
+**    In:   queryDescriptors, trainingDescriptors
+**    Out:  matches
+*/
+void match(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<DMatch> &matches)
+{
+  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
+  matcher->add(trainingDescriptors);
+  matcher->match(queryDescriptors, matches);
+}
+
+/* Use a FLANN-based matcher to find the k best matches in the training set
+** for every query descriptor.
+*/
+/* Single image.
+**    In:   queryDescriptors, trainingDescriptors, k
+**    Out:  matches
+*/
+/*
+void matchKnn(Mat &queryDescriptors, Mat &trainingDescriptors, std::vector<std::vector<DMatch> > &matches, int k)
+{
+  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
+  matcher->knnMatch(queryDescriptors, trainingDescriptors, matches, k);
+}
+*/
+/*  Single query image, multiple training images
+**    In:   queryDescriptors, trainingDescriptors, k
+**    Out:  matches
+*/
+/*
+void matchKnn(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<DMatch> > &matches, int k)
+{
+  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
+  matcher->add(trainingDescriptors);
+  matcher->knnMatch(queryDescriptors, matches, k);
+}
+*/
+
+// Fully match to each trianing image, seperate tree for each training image match
+// Will be very slow for a large training set! How to use just one big tree??
+// All entries with mask values of 0 (mask is all 0 by default) will get matched
+void matchKnn(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<std::vector<DMatch> > > &matches, int k, std::vector<char> mask)
+{
+  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
+  std::vector<std::vector<DMatch> > knn_matches;
+  if(mask.size() == 0)
+  {
+    mask.resize(trainingDescriptors.size());
+  }
+  for(int i = 0; i < trainingDescriptors.size(); i++)
+  {
+    // Number of keypoints in both query and training must be greater than the number of neighbours to match with!
+    if(mask.at(i) == 0 && queryDescriptors.rows >= k && trainingDescriptors.at(i).rows >= k)
+    {
+      matcher->clear();
+      knn_matches.clear();
+      matcher->knnMatch(queryDescriptors, trainingDescriptors.at(i), knn_matches, k);
+      matches.push_back(knn_matches);
+    }
+  }
+}
+
+/* Filter a set of matches by thresholding at twice the minimum distance,
+** (i.e. twice the best-match distance)
+**
+**    In:   queryDescriptors
+**    Out:  matches
+*/
+void simpleFilter(Mat &queryDescriptors, std::vector<DMatch> &matches)
+{
+  //Calculate best match distance
+  double min_dist = matches[0].distance;
+  for(int i = 0; i < queryDescriptors.rows; i++)
+  {
+    double dist = matches[i].distance;
+    if(dist < min_dist) min_dist = dist;
+  }
+
+  // Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
+  // or a small arbitary value ( 0.02 ) in the event that min_dist is very
+  // small)
+  std::vector<DMatch> good_matches;
+  for(int i = 0; i < queryDescriptors.rows; i++)
+  {
+    if(matches[i].distance <= max(2*min_dist, 0.02))
+    {
+      good_matches.push_back(matches[i]);
+    }
+  }
+  matches = good_matches;
+}
+
+/* Filter a set of knn matches according to Lowe's
+** nearest neighbour distance ratio.
+**
+**    In:   knnMatches
+**    Out:  matches
+*/
+void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatch> &matches)
+{
+  std::vector<DMatch> good_matches;
+  int count = 0;
+  for (int i = 0; i < knnMatches.size(); i++)
+  {
+    const float ratio = 0.8; // 0.8 in Lowe's paper; can be tuned
+    if (knnMatches[i][0].distance <= ratio * knnMatches[i][1].distance)
+    {
+      good_matches.push_back(knnMatches[i][0]);
+    } else {
+      count++;
+    }
+  }
+  //printf("Lowe filter removed %d matches.\n", count);
+  matches = good_matches;
+}
+
+
+/* Filter a set of matches by computing the homography matrix describing the transform
+** of the query keypoints onto the training keypoints. Internally, this computation uses
+** RANSAC to find inliers, and inlier matches are the ones which pass through the filter.
+*/
+
+/* 1D vector of query and training keypoints.
+**
+**    In:   matches, queryKeypoints, trainingKeypoints
+**    Out:  matches, homography
+*/
+void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<KeyPoint> &trainingKeypoints, Mat &homography)
+{
+  std::vector<Point2f> queryCoords;
+  std::vector<Point2f> trainingCoords;
+
+  for(int i = 0; i < matches.size(); i++)
+  {
+    //Get the coords of the keypoints from the matches
+    queryCoords.push_back(queryKeypoints.at(matches.at(i).queryIdx).pt);
+    trainingCoords.push_back(trainingKeypoints.at(matches.at(i).trainIdx).pt);
+  }
+
+  Mat outputMask;
+  homography = findHomography(queryCoords, trainingCoords, CV_RANSAC, 3, outputMask);
+  int inlierCounter = 0;
+  std::vector<DMatch> good_matches;
+  for(int i = 0; i < outputMask.rows; i++)
+  {
+    if((unsigned int)outputMask.at<uchar>(i))
+    {
+      inlierCounter++;
+      good_matches.push_back(matches[i]);
+    }
+  }
+  //printf("Inliers/Outliers = %d/%d, i.e. %fpc\n", inlierCounter, outputMask.rows, (((float)inlierCounter / (float)outputMask.rows * 100)));
+  matches = good_matches;
+}
+
+/* 1D vector of query keypoints, a set of training keypoint vectors,
+** each usually corresponding to its own training image.
+** If no matches are found for a set of training keypoints, the identity
+** matrix is pushed onto the homographies list.
+**
+**    In:   matches, queryKeypoints, trainingKeypoints
+**    Out:  matches, homographies
+*/
+void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &homographies)
+{
+  std::vector<Point2f> queryCoords;
+  std::vector<Point2f> trainingCoords;
+  std::vector<DMatch> good_matches;
+
+  for(int j = 0; j < trainingKeypoints.size(); j++)
+  {
+    queryCoords.clear();
+    trainingCoords.clear();
+
+    for( int i = 0; i < matches.size(); i++ )
+    {
+      //Get the coords of the keypoints from the matches, making sure to
+      //only consider matches derived from keypoints in this training image
+      if(matches.at(i).imgIdx == j)
+      {
+        queryCoords.push_back( queryKeypoints.at(matches.at(i).queryIdx).pt );
+        trainingCoords.push_back( trainingKeypoints.at(j).at(matches.at(i).trainIdx).pt );
+      }
+    }
+
+    Mat outputMask;
+    int inlierCounter = 0;
+
+    if(queryCoords.size() != 0 && queryCoords.size() != 0)
+    {
+      homographies.push_back(findHomography(queryCoords, trainingCoords, CV_RANSAC, 3, outputMask));
+    } else {
+      //cant compute homography is there were no matches in this training image, so push identity matrix
+      homographies.push_back(Mat::eye(3, 3, CV_64F));
+    }
+
+    //Filter matches according to RANSAC inliers
+    for (int i = 0; i < outputMask.rows; i++) {
+      if((unsigned int)outputMask.at<uchar>(i)) {
+        inlierCounter++;
+        good_matches.push_back(matches[i]);
+      }
+    }
+    printf("Inliers/Outliers = %d/%d, i.e. %fpc\n", inlierCounter, outputMask.rows, (((float)inlierCounter / (float)outputMask.rows * 100)));
+  }
+  matches = good_matches;
+}
+
+/*  Match a set of features and remove all keypoints + descriptors which matched
+**  from the set. Useful to remove similar features from a set of training images.
+*/
+/*  Single set of keypoints and descriptors (for 2 images).
+**
+**    In:   queryKeypoints, queryDescriptors, trainingKeypoints, trainingDescriptors
+**    Out:  queryKeypoints, queryDescriptors, trainingKeypoints, trainingDescriptors
+*/
+/*
+void removeMatchingFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<KeyPoint> &trainingKeypoints, Mat &trainingDescriptors)
+{
+  std::vector<std::vector<DMatch> > knn_matches;
+  std::vector<DMatch> matches;
+  matchKnn(queryDescriptors, trainingDescriptors, knn_matches, 2);
+  loweFilter(knn_matches, matches);
+
+  /*
+  Mat out1;
+  drawMatches(queryImage, queryKeypoints, trainingImage, trainingKeypoints, matches, out1,
+      Scalar::all(-1), Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::DEFAULT);
+  imshow("Original Matches", out1);
+  imwrite("old.jpg", out1);
+  waitKey(0);
+  */
+/*
+  std::vector<int> matchedIndices;
+  for(int i = 0; i < matches.size(); i++)
+  {
+    matchedIndices.push_back(matches.at(i).trainIdx);
+  }
+
+  std::vector<KeyPoint> filteredQueryKeypoints;
+  Mat filteredQueryDescriptors;
+  std::vector<KeyPoint> filteredTrainingKeypoints;
+  Mat filteredTrainingDescriptors;
+  for(int i = 0; i < queryKeypoints.size(); i++)
+  {
+    if(std::find(matchedIndices.begin(), matchedIndices.end(), i) == matchedIndices.end())
+    {
+      //doesnt contain this index, so add it
+      filteredQueryKeypoints.push_back(queryKeypoints.at(i));
+    } else {
+      //printf("Match in query at index %d\n", i);
+    }
+  }
+  filteredQueryDescriptors.create(filteredQueryKeypoints.size(), queryDescriptors.cols, queryDescriptors.type());
+  int nextEmptyRow = 0;
+  for(int i = 0; i < queryKeypoints.size(); i++)
+  {
+    if(std::find(matchedIndices.begin(), matchedIndices.end(), i) == matchedIndices.end())
+    {
+      //doesnt contain this index, so add it
+      queryDescriptors.row(i).copyTo(filteredQueryDescriptors.row(nextEmptyRow));
+      nextEmptyRow++;
+    }
+  }
+
+  for(int i = 0; i < trainingKeypoints.size(); i++)
+  {
+    if(std::find(matchedIndices.begin(), matchedIndices.end(), i) == matchedIndices.end())
+    {
+      //doesnt contain this index, so add it
+      filteredTrainingKeypoints.push_back(trainingKeypoints.at(i));
+    } else {
+      //printf("Match in training at index %d\n", i);
+    }
+  }
+  filteredTrainingDescriptors.create(filteredTrainingKeypoints.size(), trainingDescriptors.cols, trainingDescriptors.type());
+  nextEmptyRow = 0;
+  for(int i = 0; i < trainingKeypoints.size(); i++)
+  {
+    if(std::find(matchedIndices.begin(), matchedIndices.end(), i) == matchedIndices.end())
+    {
+      //doesnt contain this index, so add it
+      trainingDescriptors.row(i).copyTo(filteredTrainingDescriptors.row(nextEmptyRow));
+      nextEmptyRow++;
+    }
+  }
+
+  queryKeypoints = filteredQueryKeypoints;
+  queryDescriptors = filteredQueryDescriptors;
+  trainingKeypoints = filteredTrainingKeypoints;
+  trainingDescriptors = filteredTrainingDescriptors;
+  /*
+  Mat out2;
+  matches.clear();
+  drawMatches(queryImage, filteredQueryKeypoints, trainingImage, filteredTrainingKeypoints, matches, out2,
+      Scalar::all(-1), Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::DEFAULT);
+  imshow("New Matches", out2);
+  imwrite("new.jpg", out2);
+  waitKey(0);
+  */
+  /*
+}
+
+/*  Keypoints and descriptors for a set of training images; a pairwise matching is performed for all pairs.
+**
+**    In:   trainingKeypoints, trainingDescriptors
+**    Out:  trainingKeypoints, trainingDescriptors
+*//*
+void removeMatchingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors)
+{
+  for(int i = 0; i < trainingKeypoints.size(); i++)
+  {
+    for(int j = 0; j < trainingKeypoints.size(); j++)
+    {
+      if(i != j)
+      {
+        removeMatchingFeatures(trainingKeypoints.at(i), trainingDescriptors.at(i), trainingKeypoints.at(j), trainingDescriptors.at(j));
+      }
+    }
+  }
+}
+*/
+/*  Filter a list of query keypoints + descriptors such that each keypoint must
+**  be in at least <threshold> matches across all training images.
+**
+**    In:   queryKeypoints, queryDescriptors, matchesSet, threshold
+**    Out:  queryKeypoints, queryDescriptors
+*/
+void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<std::vector<DMatch> > &matchesSet, int threshold)
+{
+  //Entry i of countArray corresponds to keypoint i, and counts the number of matches that keypoint is in.
+  int* countArray = (int*) calloc(queryKeypoints.size(), sizeof(int));
+  for(int i = 0; i < matchesSet.size(); i++)  //for each set of matches (1 per training image)
+  {
+    for(int j = 0; j < matchesSet.at(i).size(); j++)  //for each match in this set
+    {
+      countArray[matchesSet.at(i).at(j).queryIdx]++;
+    }
+  }
+
+  std::vector<KeyPoint> goodKeypoints;
+  for(int i = 0; i < queryKeypoints.size(); i++)
+  {
+    if(countArray[i] >= threshold)
+    {
+      goodKeypoints.push_back(queryKeypoints.at(i));
+    }
+  }
+
+  Mat goodDescriptors;
+  goodDescriptors.create(goodKeypoints.size(), queryDescriptors.cols, queryDescriptors.type());
+  int nextEmptyRow = 0;
+  for(int i = 0; i < queryKeypoints.size(); i++)
+  {
+    if(countArray[i] >= threshold)
+    {
+      queryDescriptors.row(i).copyTo(goodDescriptors.row(nextEmptyRow));
+      nextEmptyRow++;
+    }
+  }
+
+  queryKeypoints = goodKeypoints;
+  queryDescriptors = goodDescriptors;
+}
+
+/*  -Take each training image in turn, treating it as a query image.
+**  -Fully match it with each of the remaining training images.
+**  -Build a list of valid keypoints for this image according to the number
+**   of matches each keypoint is a part of, (thresholding at a certain number of matches).
+**  -Repeat for each training image, being sure to restore the previous query images keypoints to their original values.
+**  -Finally, take all the lists of validated keypoints and use these as the training set.
+**  -Now, a new query image can be matched to the training images with these valid keypoint sets.
+**
+**  This turned out to not work very well! Often, too many keypoints were lost, so the new keypoint-rich query image
+**  would match to the same "most similar" remaining keypoint in the training image. Perhaps performance will be better
+**  for a much larger training set?
+**
+**    In:   trainingKeypoints, trainingDescriptors
+**    Out:  goodTrainingKeypoints, goodTrainingDescriptors
+*/
+void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors)
+{
+  std::vector<KeyPoint> currentGoodKeypoints;
+  Mat currentGoodDescriptors;
+
+  //For each training image there is a k-length list of match sets, ranked in order of distance
+  std::vector<std::vector<std::vector<DMatch> > > knnMatches;
+  //For each training image there is a set of matches
+  std::vector<std::vector<DMatch> > matchesSet;
+  //For a single image there is a set of matches
+  std::vector<DMatch> matches;
+
+  std::vector<char> mask;
+  mask.resize(trainingKeypoints.size());
+
+  for(int i = 0; i < trainingKeypoints.size(); i++)
+  {
+    //mask the query image in the training set
+    fill(mask.begin(), mask.end(), 0);
+    mask.at(i) = 1;
+
+    matches.clear();
+    knnMatches.clear();
+    matchesSet.clear();
+
+    //Get the kNN matches for the query image against each training image
+    matchKnn(trainingDescriptors.at(i), trainingDescriptors, knnMatches, 2, mask);
+
+    //Filter each kNN match set and produce a list of best matches for the query
+    //image against each training image, (matchesSet).
+    for(int k = 0; k < knnMatches.size(); k++)
+    {
+      int trainingIndex = (k >= i) ? k + 1 : k;
+      loweFilter(knnMatches.at(k), matches);
+      Mat homography;
+      ransacFilter(matches, trainingKeypoints.at(i), trainingKeypoints.at(trainingIndex), homography);
+      matchesSet.push_back(matches);
+    }
+
+    Mat out;
+    currentGoodKeypoints = trainingKeypoints.at(i);
+    currentGoodDescriptors = trainingDescriptors.at(i);
+
+    findGoodFeatures(currentGoodKeypoints, currentGoodDescriptors, matchesSet, 2);
+
+    goodTrainingKeypoints.push_back(currentGoodKeypoints);
+    goodTrainingDescriptors.push_back(currentGoodDescriptors);
+  }
+}
+
+/* Consider the bounding box of input image as the object.
+** Tranform this box according to the homography matrix and draw it on the
+** output image.
+*/
+void drawObject(Mat &input, Mat &homography, Mat &output)
+{
+  std::vector<Point2f> objCorners(4);
+  objCorners[0] = Point(0,0);
+  objCorners[1] = Point( input.cols, 0 );
+  objCorners[2] = Point( input.cols, input.rows );
+  objCorners[3] = Point( 0, input.rows );
+
+  std::vector<Point2f> scnCorners(4);
+
+  perspectiveTransform(objCorners, scnCorners, homography);
+
+  line( output, scnCorners[0] + Point2f( input.cols, 0), scnCorners[1] + Point2f( input.cols, 0), Scalar(0, 255, 0), 4);
+  line( output, scnCorners[1] + Point2f( input.cols, 0), scnCorners[2] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
+  line( output, scnCorners[2] + Point2f( input.cols, 0), scnCorners[3] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
+  line( output, scnCorners[3] + Point2f( input.cols, 0), scnCorners[0] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
+}
