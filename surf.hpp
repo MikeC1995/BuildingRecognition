@@ -6,6 +6,7 @@
 
 using namespace cv;
 
+//KEEP THIS
 void createSurfDetector(Ptr<xfeatures2d::SURF> &detector, double hessianThreshold = 400.0,
     int numOctaves = 4, int numOctaveLayers = 2, int extended = 1, int upright = 0);
 
@@ -22,6 +23,8 @@ void match(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::ve
 void matchKnn(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<std::vector<DMatch> > > &matches, int k, std::vector<char> mask=std::vector<char>());
 
 void simpleFilter(Mat &queryDescriptors, std::vector<DMatch> &matches);
+
+//KEEP THIS
 void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatch> &matches);
 
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<KeyPoint> &trainingKeypoints, Mat &homography);
