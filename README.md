@@ -1,2 +1,1 @@
-# BuildingRecognition
-Individual project repo
+# individual-project

@@ -6,7 +6,6 @@
 
 using namespace cv;
 
-//KEEP THIS
 void createSurfDetector(Ptr<xfeatures2d::SURF> &detector, double hessianThreshold = 400.0,
     int numOctaves = 4, int numOctaveLayers = 2, int extended = 1, int upright = 0);
 
@@ -15,26 +14,13 @@ void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKey
   std::vector<Mat> &trainingImages, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors,
   Ptr<xfeatures2d::SURF> &detector);
 
-void match(Mat &queryDescriptors, Mat &trainingDescriptors, std::vector<DMatch> &matches);
-void match(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<DMatch> &matches);
-//void matchKnn(Mat &queryDescriptors, Mat &trainingDescriptors, std::vector<std::vector<DMatch> > &matches, int k);
-//void matchKnn(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<DMatch> > &matches, int k);
-
-void matchKnn(Mat &queryDescriptors, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<std::vector<DMatch> > > &matches, int k, std::vector<char> mask=std::vector<char>());
-
 void simpleFilter(Mat &queryDescriptors, std::vector<DMatch> &matches);
-
-//KEEP THIS
 void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatch> &matches);
 
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<KeyPoint> &trainingKeypoints, Mat &homography);
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &homographies);
 
-//void removeMatchingFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<KeyPoint> &trainingKeypoints, Mat &trainingDescriptors);
-//void removeMatchingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors);
-
 void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<std::vector<DMatch> > &matchesSet, int threshold);
 void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors);
-
 
 void drawObject(Mat &input, Mat &homography, Mat &output);

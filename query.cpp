@@ -14,6 +14,18 @@ void DIE(const char* message)
   exit(1);
 }
 
+/* TODO: matches need filtering!
+*  Filter before query:
+*     - Filter the training keypoints + descriptors in training stage, e.g.
+*       by removing duplicate keypoints in training set (see notes2.txt)
+*       Check attempted implementation findGoodTrainingFeatures!
+*  Filter after query, before final matching:
+*     - Calculate RANSAC filter for matches corresponding to each specific training image,
+*       and keep the keypoints/descriptors which pass this. The problem is that the opencv
+*       match functions dont retain info about which image it matched to!
+*     - Try cross check matching, i.e. match the large training set to the query image and
+*       only keep those which match both ways
+*/
 
 int main( int argc, char** argv )
 {
@@ -76,11 +88,6 @@ int main( int argc, char** argv )
   loweFilter(knn_matches, matches);
 
   printf("Query has %lu matches with training set\n", matches.size());
-  
-  /* TODO: how to filter the matches better?
-  *     -Calculate RANSAC filter for matches corresponding to each specific training image?
-  *     -Filter the training keypoints + descriptors in training stage
-  */
 
   //Display matches (if single train image)
   if(NUM_TRAINING_IMAGES == 1)
