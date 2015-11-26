@@ -299,6 +299,7 @@ void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescripto
 **    In:   trainingKeypoints, trainingDescriptors
 **    Out:  goodTrainingKeypoints, goodTrainingDescriptors
 */
+
 /*
 void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors)
 {
@@ -348,6 +349,7 @@ void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypo
     goodTrainingKeypoints.push_back(currentGoodKeypoints);
     goodTrainingDescriptors.push_back(currentGoodDescriptors);
   }
+
 }*/
 
 /* Consider the bounding box of input image as the object.

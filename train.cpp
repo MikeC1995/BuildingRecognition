@@ -14,7 +14,6 @@ void DIE(const char* message)
   exit(1);
 }
 
-
 void readTrainingImages(std::string const &folderpath, std::string const &extension, int number, std::vector<Mat> &images)
 {
   for(int i = 1; i <= number; i++)
@@ -47,6 +46,7 @@ int main( int argc, char** argv )
 
   std::vector<std::vector<KeyPoint> > trainingKeypoints;
   std::vector<Mat> trainingDescriptors;
+
   printf("Detecting keypoints...\n");
   detector->detect(trainingImages, trainingKeypoints);
   printf("Computing descriptors...\n");
