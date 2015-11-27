@@ -54,7 +54,7 @@ int main( int argc, char** argv )
 
   //Create a matcher based on the model data
   printf("Creating matcher...\n");
-  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher("test");
+  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher("wills");
   printf("Adding training descriptors...\n");
   matcher->add(trainingDescriptors);
   printf("Training...\n");

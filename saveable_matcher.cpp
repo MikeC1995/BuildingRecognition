@@ -1,4 +1,9 @@
 #include "saveable_matcher.hpp"
+#include <algorithm>
+#include <iostream>
+#include <iterator>
+#include <vector>
+#include <fstream>
 
 SaveableFlannBasedMatcher::SaveableFlannBasedMatcher(const char* _filename)
 {
@@ -56,52 +61,17 @@ void SaveableFlannBasedMatcher::store()
   // Save the descriptors
   std::vector<Mat> descs = getTrainDescriptors();
   std::string descriptorsFilename(filename);
-  descriptorsFilename += "-descriptors.xml.gz";
-  cv::FileStorage descriptorsStore(descriptorsFilename.c_str(), cv::FileStorage::WRITE);
-  descriptorsStore << "size" << (int)(descs.size());
-
-  int i;
-  for(i = 0; i < descs.size(); i++)
-  {
-    //the name of the xml node containing the descriptors
-    std::stringstream sstm;
-    sstm << "descriptors" << i;
-    const char* descs_name = sstm.str().c_str();
-
-    //write descriptors to the store
-    descriptorsStore << descs_name << descs.at(i);
-  }
-  descriptorsStore.release();
+  descriptorsFilename += "-descriptors.bin";
+  writeDescriptors(descs, descriptorsFilename.c_str());
 }
 
 void SaveableFlannBasedMatcher::load()
 {
-  // Load the descriptors
+  // Read the descriptors
   std::vector<Mat> descsVec;
   std::string descriptorsFilename(filename);
-  descriptorsFilename += "-descriptors.xml.gz";
-  printf("Reading descriptors file...\n");
-  cv::FileStorage descriptorsStore(descriptorsFilename.c_str(), cv::FileStorage::READ);
-
-  int size;
-  descriptorsStore["size"] >> size;
-  printf("Reading %d descriptor matrices...\n", size);
-  int i;
-  for(i = 0; i < size; i++)
-  {
-    Mat descs;
-
-    //the name of the xml node containing the descriptors
-    std::stringstream sstm;
-    sstm << "descriptors" << i;
-    const char* descs_name = sstm.str().c_str();
-
-    //load the descriptor matrix
-    descriptorsStore[descs_name] >> descs;
-
-    descsVec.push_back(descs);
-  }
-  descriptorsStore.release();
+  descriptorsFilename += "-descriptors.bin";
+  readDescriptors(descsVec, descriptorsFilename.c_str());
 
   // Add the descriptors to the matcher
   printf("Adding the descriptors to the matcher...\n");
@@ -136,4 +106,79 @@ void SaveableFlannBasedMatcher::writeIndex(const char* name)
 {
   printParams();
   flannIndex->save(name);
+}
+
+void SaveableFlannBasedMatcher::writeDescriptors(std::vector<Mat> descriptors, const char* name)
+{
+  // Open the file
+  printf("Opening descriptors file: %s...\n", name);
+  std::ofstream outFILE(name, std::ios::out | std::ofstream::binary);
+
+  // Write the number of descriptors so we can read back later
+  int size = descriptors.size();
+  outFILE.write(reinterpret_cast<char*>(&size), sizeof(int));
+  printf("Ready to write %d matrices...\n", size);
+
+  // Write each of the descriptor matrices
+  std::vector<float> descsArray;
+  for(int i = 0; i < size; i++)
+  {
+    int width = descriptors.at(i).size().width;
+    int height = descriptors.at(i).size().height;
+
+    // Write matrix dimensions
+    outFILE.write(reinterpret_cast<char*>(&width), sizeof(int));
+    outFILE.write(reinterpret_cast<char*>(&height), sizeof(int));
+    printf("Matrix %d is of size (%d, %d)...\n", i, width, height);
+
+    // Copy matrix into vector
+    descsArray.assign((float*)descriptors.at(i).datastart, (float*)descriptors.at(i).dataend);
+
+    // Finally, write actual matrix data
+    outFILE.write(reinterpret_cast<char*>(&descsArray[0]), descsArray.size() * sizeof(float));
+    printf("Successfully wrote matrix...\n");
+  }
+  printf("Done writing matrices!\n");
+  outFILE.close();
+}
+
+void SaveableFlannBasedMatcher::readDescriptors(std::vector<Mat> &descriptors, const char* name)
+{
+  // Open the file
+  printf("Opening descriptors file: %s...\n", name);
+  std::ifstream inFILE(name, std::ios::in | std::ios::binary);
+
+  // Read the number of descriptors in the file
+  int size;
+  inFILE.read(reinterpret_cast<char*>(&size), sizeof(int));
+  printf("Ready to read %d matrices...\n", size);
+
+  // Read each of the descriptor matrices
+  std::vector<float> descsArray;
+  for(int i = 0; i < size; i++)
+  {
+    int width, height;
+    // Read the matrix dimensions
+    inFILE.read(reinterpret_cast<char*>(&width), sizeof(int));
+    inFILE.read(reinterpret_cast<char*>(&height), sizeof(int));
+    printf("Matrix %d is of size (%d, %d)...\n", i, width, height);
+
+    // Size the descsArray to hold the data we will read
+    descsArray.resize(width*height);
+
+    // Read the data into the descsArray
+    inFILE.read(reinterpret_cast<char*>(&descsArray[0]), width * height * sizeof(float));
+    printf("Successfully read matrix into vector of size %lu...\n", descsArray.size());
+
+    // Create a matrix of the correct dimensions
+    Mat descsMat;
+    descsMat.create(height, width, CV_32FC1);
+    memcpy(descsMat.data, descsArray.data(), descsArray.size() * sizeof(float));
+    printf("Successfully copied vector to matrix...\n");
+
+    // Push matrix to output descriptors vector
+    descriptors.push_back(descsMat);
+  }
+  printf("Done reading matrices!\n");
+  inFILE.close();
 }

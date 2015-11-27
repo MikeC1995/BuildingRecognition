@@ -25,4 +25,6 @@ protected:
   const char* filename;
   void readIndex(const char* name);
   void writeIndex(const char* name);
+  void writeDescriptors(std::vector<Mat> descriptors, const char* name);
+  void readDescriptors(std::vector<Mat> &descriptors, const char* name);
 };
