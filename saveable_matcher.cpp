@@ -79,7 +79,8 @@ void SaveableFlannBasedMatcher::load()
   // Load the descriptors
   std::vector<Mat> descsVec;
   std::string descriptorsFilename(filename);
-  descriptorsFilename += ".xml.gz";
+  descriptorsFilename += "-descriptors.xml.gz";
+  printf("Reading descriptors file...\n");
   cv::FileStorage descriptorsStore(descriptorsFilename.c_str(), cv::FileStorage::READ);
 
   int size;
@@ -103,16 +104,19 @@ void SaveableFlannBasedMatcher::load()
   descriptorsStore.release();
 
   // Add the descriptors to the matcher
+  printf("Adding the descriptors to the matcher...\n");
   add(descsVec);
 
   std::string treeFilename(filename);
   treeFilename += "-tree.xml.gz";
   cv::FileStorage store(treeFilename.c_str(), cv::FileStorage::READ);
   cv::FileNode node = store.root();
+  printf("Reading the matcher tree data...\n");
   read(node);
 
   std::string indexFilename(filename);
   indexFilename += ".flannindex";
+  printf("Reading the flann index...\n");
   readIndex(indexFilename.c_str());
   store.release();
 }

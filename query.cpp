@@ -26,6 +26,8 @@ void DIE(const char* message)
 *       match functions dont retain info about which image it matched to!
 *     - Try cross check matching, i.e. match the large training set to the query image and
 *       only keep those which match both ways
+*     - Calculate average euclidean distance across all matches and threshold?
+*     - Reject matches below a certain euclidean distance, and still threshold on number of matches?
 */
 
 int main( int argc, char** argv )
