@@ -3,8 +3,8 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
-#include "surf.hpp"
-#include "saveable_matcher.hpp"
+#include "lib/surf.hpp"
+#include "lib/saveable_matcher.hpp"
 
 using namespace cv;
 
@@ -41,8 +41,8 @@ int main( int argc, char** argv )
   readTrainingImages(trainingFolderName, extension, number, trainingImages);
 
   printf("Creating detector...\n");
-  Ptr<xfeatures2d::SURF> detector;
-  createSurfDetector(detector);
+  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SURF");
 
   std::vector<std::vector<KeyPoint> > trainingKeypoints;
   std::vector<Mat> trainingDescriptors;

@@ -16,32 +16,36 @@ using namespace cv;
 **
 **    Out:  detector
 */
-void createSurfDetector(Ptr<xfeatures2d::SURF> &detector, double hessianThreshold,
+/*  Parameter descriptions
+**
+**  hessianThreshold
+**  The higher the threshold, fewer keypoints are detected
+**  Too low a value = weak feature points which have less repeatability.
+**  Too high a value = not be enough features to describe the image.
+**
+**  numOctaves
+**  Determines the size of the features the detector looks for.
+**  For large features, use a larger value.
+**
+**  numOctaveLayers
+**  Determines the range of feature sizes that can be detected.
+**  More layers = detect features of many different sizes
+**
+**  extended
+**  0 = 64 dimension descriptors; 1 = 128 dimensions
+**
+**  upright
+**  0 = compute orientation of each feature; 1 = do not compute orientation
+*/
+void createDetector(Ptr<FeatureDetector> &detector, std::string type, double hessianThreshold,
     int numOctaves, int numOctaveLayers, int extended, int upright)
 {
-  /*  Parameter descriptions
-  **
-  **  hessianThreshold
-  **  The higher the threshold, fewer keypoints are detected
-  **  Too low a value = weak feature points which have less repeatability.
-  **  Too high a value = not be enough features to describe the image.
-  **
-  **  numOctaves
-  **  Determines the size of the features the detector looks for.
-  **  For large features, use a larger value.
-  **
-  **  numOctaveLayers
-  **  Determines the range of feature sizes that can be detected.
-  **  More layers = detect features of many different sizes
-  **
-  **  extended
-  **  0 = 64 dimension descriptors; 1 = 128 dimensions
-  **
-  **  upright
-  **  0 = compute orientation of each feature; 1 = do not compute orientation
-  */
-
-  detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+  if(type.compare("SURF") == 0)
+  {
+    detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+  } else if(type.compare("SIFT") == 0) {
+    detector = xfeatures2d::SIFT::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+  }
 }
 
 /* Create a SURF feature detector, and using it calculate keypoints and
@@ -51,30 +55,8 @@ void createSurfDetector(Ptr<xfeatures2d::SURF> &detector, double hessianThreshol
 **  In:   image
 **  Out:  keypoints, descriptors
 */
-void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors)
+void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors, Ptr<FeatureDetector> &detector)
 {
-  //The higher the threshold, fewer keypoints are detected
-  //Too low a value = weak feature points which have less repeatability.
-  //Too high a value = not be enough features to describe the image.
-  double hessianThreshold = 400.0;
-
-  //Determines the size of the features the detector looks for.
-  //For large features, use a larger value.
-  int numOctaves = 4;
-
-  //Determines the range of feature sizes that can be detected.
-  //More layers = detect features of many different sizes
-  int numOctaveLayers = 2;
-
-  //0 = 64 dimension descriptors; 1 = 128 dimensions
-  int extended = 1;
-
-  //0 = compute orientation of each feature; 1 = do not compute orientation
-  int upright = 0;
-
-  Ptr<xfeatures2d::SURF> detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
-
-  //detect keypoints and compute descriptors using the detector
   detector->detectAndCompute(image, noArray(), keypoints, descriptors, false);
 }
 
@@ -84,7 +66,7 @@ void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Ma
 */
 void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors,
   std::vector<Mat> &trainingImages, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors,
-  Ptr<xfeatures2d::SURF> &detector)
+  Ptr<FeatureDetector> &detector)
 {
   detector->detect(queryImage, queryKeypoints);
   detector->detect(trainingImages, trainingKeypoints);
@@ -151,7 +133,6 @@ void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatc
 ** of the query keypoints onto the training keypoints. Internally, this computation uses
 ** RANSAC to find inliers, and inlier matches are the ones which pass through the filter.
 */
-
 /* 1D vector of query and training keypoints.
 **
 **    TODO: matches size < 4 cannot compute homography matrix... handle this!
@@ -182,7 +163,6 @@ void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeyp
       good_matches.push_back(matches[i]);
     }
   }
-  //printf("Inliers/Outliers = %d/%d, i.e. %fpc\n", inlierCounter, outputMask.rows, (((float)inlierCounter / (float)outputMask.rows * 100)));
   matches = good_matches;
 }
 
@@ -281,74 +261,6 @@ void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescripto
   queryKeypoints = goodKeypoints;
   queryDescriptors = goodDescriptors;
 }
-
-/*  -Take each training image in turn, treating it as a query image.
-**  -Fully match it with each of the remaining training images.
-**  -Build a list of valid keypoints for this image according to the number
-**   of matches each keypoint is a part of, (thresholding at a certain number of matches).
-**  -Repeat for each training image, being sure to restore the previous query images keypoints to their original values.
-**  -Finally, take all the lists of validated keypoints and use these as the training set.
-**  -Now, a new query image can be matched to the training images with these valid keypoint sets.
-**
-**  This turned out to not work very well! Often, too many keypoints were lost, so the new keypoint-rich query image
-**  would match to the same "most similar" remaining keypoint in the training image. Perhaps performance will be better
-**  for a much larger training set?
-**
-**    In:   trainingKeypoints, trainingDescriptors
-**    Out:  goodTrainingKeypoints, goodTrainingDescriptors
-*/
-
-/*
-void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors)
-{
-  std::vector<KeyPoint> currentGoodKeypoints;
-  Mat currentGoodDescriptors;
-
-  //For each training image there is a k-length list of match sets, ranked in order of distance
-  std::vector<std::vector<std::vector<DMatch> > > knnMatches;
-  //For each training image there is a set of matches
-  std::vector<std::vector<DMatch> > matchesSet;
-  //For a single image there is a set of matches
-  std::vector<DMatch> matches;
-
-  std::vector<char> mask;
-  mask.resize(trainingKeypoints.size());
-
-  for(int i = 0; i < trainingKeypoints.size(); i++)
-  {
-    //mask the query image in the training set
-    fill(mask.begin(), mask.end(), 0);
-    mask.at(i) = 1;
-
-    matches.clear();
-    knnMatches.clear();
-    matchesSet.clear();
-
-    //Get the kNN matches for the query image against each training image
-    matchKnn(trainingDescriptors.at(i), trainingDescriptors, knnMatches, 2, mask);
-
-    //Filter each kNN match set and produce a list of best matches for the query
-    //image against each training image, (matchesSet).
-    for(int k = 0; k < knnMatches.size(); k++)
-    {
-      int trainingIndex = (k >= i) ? k + 1 : k;
-      loweFilter(knnMatches.at(k), matches);
-      Mat homography;
-      ransacFilter(matches, trainingKeypoints.at(i), trainingKeypoints.at(trainingIndex), homography);
-      matchesSet.push_back(matches);
-    }
-
-    Mat out;
-    currentGoodKeypoints = trainingKeypoints.at(i);
-    currentGoodDescriptors = trainingDescriptors.at(i);
-
-    findGoodFeatures(currentGoodKeypoints, currentGoodDescriptors, matchesSet, 2);
-
-    goodTrainingKeypoints.push_back(currentGoodKeypoints);
-    goodTrainingDescriptors.push_back(currentGoodDescriptors);
-  }
-
-}*/
 
 /* Consider the bounding box of input image as the object.
 ** Tranform this box according to the homography matrix and draw it on the

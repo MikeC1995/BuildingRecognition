@@ -34,24 +34,22 @@ int main( int argc, char** argv )
 {
   char* queryFolderName = argv[1];
   int number = atoi(argv[2]);
+  char* class_name = argv[3];
 
-  std::string class_name = queryFolderName;
-  class_name = class_name.substr(class_name.length() - 3);
   strcat(queryFolderName, "/");
   std::string const extension = ".jpg";
 
   std::vector<Mat> queryImages;
   readQueryImages(queryFolderName, extension, number, queryImages);
 
-  //TODO: port this to library call so same parameters used here and in training
-  Ptr<xfeatures2d::SURF> detector = xfeatures2d::SURF::create(400.0, 4, 2, 1, 0);
+  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SURF");
 
   // Load a matcher based on the model data
   Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher("wills");
   printf("Loading matcher..\n");
   matcher->load();
   printf("Loaded!\n");
-
 
   std::vector<DMatch> matches;
   struct timeval timstr;
@@ -70,6 +68,6 @@ int main( int argc, char** argv )
     gettimeofday(&timstr,NULL);
     toc=timstr.tv_sec+(timstr.tv_usec/1000000.0);
 
-    printf("%d,%s,%lu,%lu,%.6lf\n", i, class_name.c_str(),original_num_matches,matches.size(),toc-tic);
+    printf("%d,%s,%lu,%lu,%.6lf\n", i, class_name,original_num_matches,matches.size(),toc-tic);
   }
 }

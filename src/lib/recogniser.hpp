@@ -8,4 +8,4 @@
 
 using namespace cv;
 
-void query(Ptr<xfeatures2d::SURF> &detector, Ptr<SaveableFlannBasedMatcher> &matcher, Mat queryImage, std::vector<DMatch> &matches, long &original_num_matches);
+void query(Ptr<FeatureDetector> &detector, Ptr<SaveableFlannBasedMatcher> &matcher, Mat queryImage, std::vector<DMatch> &matches, long &original_num_matches);
