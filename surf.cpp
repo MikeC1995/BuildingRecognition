@@ -76,8 +76,6 @@ void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Ma
 
   //detect keypoints and compute descriptors using the detector
   detector->detectAndCompute(image, noArray(), keypoints, descriptors, false);
-
-  waitKey(0);
 }
 
 /* Single query image, multiple training images.
