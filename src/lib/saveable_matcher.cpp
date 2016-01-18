@@ -5,6 +5,9 @@
 #include <vector>
 #include <fstream>
 
+#include <boost/python.hpp>
+using namespace boost::python;
+
 SaveableFlannBasedMatcher::SaveableFlannBasedMatcher(const char* _filename)
 {
   filename = _filename;
@@ -67,6 +70,7 @@ void SaveableFlannBasedMatcher::store()
 
 void SaveableFlannBasedMatcher::load()
 {
+  printf("Load called! Filename: %s\n", filename);
   // Read the descriptors
   std::vector<Mat> descsVec;
   std::string descriptorsFilename(filename);
@@ -181,4 +185,17 @@ void SaveableFlannBasedMatcher::readDescriptors(std::vector<Mat> &descriptors, c
   }
   printf("Done reading matrices!\n");
   inFILE.close();
+}
+
+void SaveableFlannBasedMatcher::test() {
+  printf("Test called! Filename: %s\n", filename);
+}
+
+// Python Wrapper
+BOOST_PYTHON_MODULE(saveable_matcher)
+{
+    class_<SaveableFlannBasedMatcher>("SaveableFlannBasedMatcher", init<const char*>())
+        .def("test", &SaveableFlannBasedMatcher::test)
+        .def("load", &SaveableFlannBasedMatcher::load)
+    ;
 }

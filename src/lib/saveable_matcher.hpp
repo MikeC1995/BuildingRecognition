@@ -20,6 +20,7 @@ public:
   void printParams();
   virtual void store();
   virtual void load();
+  void test();
 
 protected:
   const char* filename;
