@@ -3,8 +3,8 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
-#include "lib/surf.hpp"
-#include "lib/saveable_matcher.hpp"
+#include "/root/server/src/lib/surf.hpp"
+#include "/root/server/src/lib/saveable_matcher.hpp"
 
 using namespace cv;
 
