@@ -15,5 +15,4 @@ LIBS += saveable_matcher.cpp
 LIBS += $(shell pkg-config --libs opencv)
 
 % : %.cpp
-	$(CC) -shared -o /root/server/src/$@.so $(CPPFLAGS) -I$(PYTHON_INCLUDE) -fPIC $< $(LIBS) -lpython$(PYTHON_VERSION) -lboost_python
-
+	$(CC) -shared -o /root/server/bin/$@.so $(CPPFLAGS) -I$(PYTHON_INCLUDE) -fPIC $< $(LIBS) -lpython$(PYTHON_VERSION) -lboost_python

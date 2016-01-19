@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include "recogniser.hpp"
 
-#include <boost/python.hpp>
 using namespace cv;
 using namespace boost::python;
 
@@ -18,10 +17,9 @@ Recogniser::Recogniser(const char* _filename)
   printf("Loaded!\n");
 }
 
-long Recogniser::query(Mat queryImage)
+long Recogniser::query(const char* imagepath)
 {
-/*  Ptr<FeatureDetector> detector;
-  createDetector(detector, "SURF");
+  Mat queryImage = imread(imagepath);
 
   std::vector<DMatch> matches;
   std::vector<std::vector<DMatch> > knn_matches;
@@ -41,22 +39,14 @@ long Recogniser::query(Mat queryImage)
   //Filter the matches according to a threshold
   loweFilter(knn_matches, matches);
 
-  return matches.size();*/
-  printf("im rows: %d\n", queryImage.size().width);
-  long x = 100000;
-  return x;
+  return matches.size();
 }
-
-void Recogniser::test() {
-  printf("Test called!");
-}
-
 
 // Python Wrapper
 BOOST_PYTHON_MODULE(recogniser)
 {
-    class_<Recogniser>("Recogniser", init<const char*>())
-        .def("test", &Recogniser::test)
-        .def("query", &Recogniser::query)
-    ;
+  class_<Recogniser>("Recogniser", init<const char*>())
+      .def("test", &Recogniser::test)
+      .def("query", &Recogniser::query)
+  ;
 }

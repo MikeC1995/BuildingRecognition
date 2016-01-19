@@ -6,15 +6,18 @@
 #include "saveable_matcher.hpp"
 #include "surf.hpp"
 
+#include <boost/python.hpp>
+
 using namespace cv;
+using namespace boost::python;
+
 
 class Recogniser
 {
 public:
   Recogniser(const char* _filename);
 
-  long query(Mat queryImage);
-  void test();
+  long query(const char* imagepath);
 
 protected:
   const char* filename;
