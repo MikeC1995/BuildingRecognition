@@ -63,7 +63,8 @@ int main( int argc, char** argv )
     tic=timstr.tv_sec+(timstr.tv_usec/1000000.0);
 
     long original_num_matches;
-    query(detector, matcher, queryImages.at(i), matches, original_num_matches);
+    //TODO: below is deprecated
+    //query(detector, matcher, queryImages.at(i), matches, original_num_matches);
 
     gettimeofday(&timstr,NULL);
     toc=timstr.tv_sec+(timstr.tv_usec/1000000.0);

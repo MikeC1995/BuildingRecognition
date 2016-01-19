@@ -16,4 +16,4 @@ LIBS += ~/server/src/lib/recogniser.cpp
 LIBS += $(shell pkg-config --libs opencv)
 
 % : %.cpp
-	$(CC) $(CPPFLAGS) $< $(LIBS) ~/server/src/lib/bin/saveable_matcher.so -o $@
+	$(CC) $(CPPFLAGS) $< $(LIBS) ~/server/src/saveable_matcher.so -o $@
