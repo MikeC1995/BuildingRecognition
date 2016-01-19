@@ -8,4 +8,16 @@
 
 using namespace cv;
 
-void query(Ptr<FeatureDetector> &detector, Ptr<SaveableFlannBasedMatcher> &matcher, Mat queryImage, std::vector<DMatch> &matches, long &original_num_matches);
+class Recogniser
+{
+public:
+  Recogniser(const char* _filename);
+
+  long query(Mat queryImage);
+  void test();
+
+protected:
+  const char* filename;
+  Ptr<SaveableFlannBasedMatcher> matcher;
+  Ptr<FeatureDetector> detector;
+};

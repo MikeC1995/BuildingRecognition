@@ -11,7 +11,7 @@ CPPFLAGS += $(shell pkg-config --cflags opencv)
 
 # OpenCV libraries to link:
 LIBS = surf.cpp
-LIBS += recogniser.cpp
+LIBS += saveable_matcher.cpp
 LIBS += $(shell pkg-config --libs opencv)
 
 % : %.cpp

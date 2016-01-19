@@ -2,10 +2,28 @@
 #include <stdio.h>
 #include "recogniser.hpp"
 
+#include <boost/python.hpp>
 using namespace cv;
+using namespace boost::python;
 
-void query(Ptr<FeatureDetector> &detector, Ptr<SaveableFlannBasedMatcher> &matcher, Mat queryImage, std::vector<DMatch> &matches, long &original_num_matches)
+Recogniser::Recogniser(const char* _filename)
 {
+  filename = _filename;
+  printf("Creating detector...\n");
+  createDetector(detector, "SURF");
+  printf("Created\n");
+  matcher = new SaveableFlannBasedMatcher(filename);
+  printf("Loading matcher..\n");
+  matcher->load();
+  printf("Loaded!\n");
+}
+
+long Recogniser::query(Mat queryImage)
+{
+/*  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SURF");
+
+  std::vector<DMatch> matches;
   std::vector<std::vector<DMatch> > knn_matches;
   matches.clear();
 
@@ -17,8 +35,28 @@ void query(Ptr<FeatureDetector> &detector, Ptr<SaveableFlannBasedMatcher> &match
   //KNN match the query images to the training set with N=2
   matcher->knnMatch(descriptors, knn_matches, 2);
 
+  long original_num_matches;
   original_num_matches = knn_matches.size();
 
   //Filter the matches according to a threshold
   loweFilter(knn_matches, matches);
+
+  return matches.size();*/
+  printf("im rows: %d\n", queryImage.size().width);
+  long x = 100000;
+  return x;
+}
+
+void Recogniser::test() {
+  printf("Test called!");
+}
+
+
+// Python Wrapper
+BOOST_PYTHON_MODULE(recogniser)
+{
+    class_<Recogniser>("Recogniser", init<const char*>())
+        .def("test", &Recogniser::test)
+        .def("query", &Recogniser::query)
+    ;
 }

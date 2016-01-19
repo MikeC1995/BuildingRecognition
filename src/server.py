@@ -1,14 +1,11 @@
 import cv2
-import saveable_matcher
+import recogniser
 
-matcher = saveable_matcher.SaveableFlannBasedMatcher("wills")
-matcher.test()
-matcher.load()
-print "Loaded matcher!"
+r = recogniser.Recogniser("wills")
+r.test()
 
 image = cv2.imread("/root/server/images/wills/query/0001.jpg")
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-sift = cv2.xfeatures2d.SIFT_create()
+r.query(image)
 
 # Methods below cause OutOfMemoryError. Instead, wrap surf.cpp modules
 # for python. Need to be able to:
@@ -16,5 +13,13 @@ sift = cv2.xfeatures2d.SIFT_create()
 #   -call matcher->knnMatch on loaded matcher
 #   -call loweFilter in surf module
 
-(kps, descs) = sift.detectAndCompute(gray, None)
-print("# kps: {}, descriptors: {}".format(len(kps), descs.shape))
+
+# Strategy:
+# Do ALL computation in C++. Load matcher into python, and pass matcher
+# as argument to C++ function along with image, which returns the classification
+# result as a string!
+# I.e. rewrite recogniser.cpp to have single query method, accepting image and matcher,
+# and returning classification result. Wrap this function with Boost.
+
+#(kps, descs) = sift.detectAndCompute(gray, None)
+#print("# kps: {}, descriptors: {}".format(len(kps), descs.shape))
