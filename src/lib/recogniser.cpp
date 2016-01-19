@@ -46,7 +46,6 @@ long Recogniser::query(const char* imagepath)
 BOOST_PYTHON_MODULE(recogniser)
 {
   class_<Recogniser>("Recogniser", init<const char*>())
-      .def("test", &Recogniser::test)
       .def("query", &Recogniser::query)
   ;
 }
