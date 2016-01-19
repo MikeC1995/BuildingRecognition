@@ -3,43 +3,50 @@ import os
 import recogniser
 
 from flask import Flask
-from flask import request, redirect, url_for, send_from_directory
+from flask import request, redirect, url_for, send_from_directory, jsonify
 from werkzeug import secure_filename
 
-# Create recogniser for Wills Memorial Building
+# Load a recogniser for Wills Memorial Building
 r = recogniser.Recogniser("wills")
 
-
-matches = r.query("/root/server/images/wills/query/0001.jpg")
-print matches
-
-
+# Create the flask REST server application
 app = Flask(__name__)
-app.config['ALLOWED_EXTENSIONS'] = set(['jpg'])
+
+# a set of allowed file extensions and the path to the folder to save them in
+app.config['ALLOWED_EXTENSIONS'] = set(['jpg', 'JPG'])
 app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.config['UPLOAD_FILENAME'] = 'query.jpg'
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
 
+# main route
+# GET       Return hello message
+# POST      include image file in body of request with key 'file'
+#           returns the number of SIFT matches
 @app.route('/', methods=['GET', 'POST'])
 def hello_world():
     if request.method == 'GET':
-        return 'Hello World! Post to me to recognise a building!'
+        return 'Hello World! Do a POST to match against Wills!'
     elif request.method == 'POST':
+        # Get the file
         file = request.files['file']
-        # Check if the file is one of the allowed types/extensions
+        # Build the path to save it to
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], app.config['UPLOAD_FILENAME'])
+
         if file and allowed_file(file.filename):
             # Make the filename safe, remove unsupported chars
             filename = secure_filename(file.filename)
-            # Move the file form the temporal folder to
-            # the upload folder we setup
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            # Redirect the user to the uploaded_file route, which
-            # will basicaly show on the browser the uploaded file
-            return redirect(url_for('uploaded_file',
-                                    filename=filename))
+            # Save file to upload folder as query.jpg
+            file.save(filepath)
+
+            # Run the recogniser on this query image to get the number of SIFT matches
+            matches = r.query(filepath)
+            return jsonify(success='true',matches=matches);
+        else:
+            return jsonify(success='false');
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
@@ -47,4 +54,5 @@ def uploaded_file(filename):
                                filename)
 
 if __name__ == '__main__':
+    app.debug = True
     app.run(host='0.0.0.0')
