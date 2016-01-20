@@ -11,9 +11,10 @@ CPPFLAGS = -ggdb -std=c++11
 CPPFLAGS += $(shell pkg-config --cflags opencv)
 
 # OpenCV libraries to link:
-LIBS = ~/server/src/lib/surf.cpp
-LIBS += ~/server/src/lib/recogniser.cpp
+LIBS = /root/server/src/lib/surf.cpp
+LIBS += /root/server/src/lib/saveable_matcher.cpp
+LIBS += /root/server/src/lib/recogniser.cpp
 LIBS += $(shell pkg-config --libs opencv)
 
 % : %.cpp
-	$(CC) $(CPPFLAGS) $< $(LIBS) ~/server/src/saveable_matcher.so -o $@
+	$(CC) -o $@ $(CPPFLAGS) $< -I$(PYTHON_INCLUDE) $(LIBS) -lpython$(PYTHON_VERSION) -lboost_python
