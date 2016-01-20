@@ -16,45 +16,53 @@ void DIE(const char* message)
 
 void readTrainingImages(std::string const &folderpath, std::string const &extension, int number, std::vector<Mat> &images)
 {
-  for(int i = 1; i <= number; i++)
-  {
-    printf("Reading image %d\n", i);
-    std::stringstream ss;
-    ss << folderpath << std::setfill('0') << std::setw(4) << std::to_string(i) << extension;
-    std::string s = ss.str();
-    Mat im = imread(s, 1);
-    images.push_back(im);
-    if(!im.data) {
-      DIE("Missing training image data!");
-    }
-  }
 }
 
 int main( int argc, char** argv )
 {
-  char* trainingFolderName = argv[1];
+  if(argc != 4)
+  {
+    DIE("Missing arguments! Usage:\n\t./train <folder-name> <number> <matcher-name>");
+  }
+  std::string trainingFolderName(argv[1]);
+  trainingFolderName += "/";
   int number = atoi(argv[2]);
-  strcat(trainingFolderName, "/");
+  char* matcherName = argv[3];
   std::string const extension = ".jpg";
 
-  std::vector<Mat> trainingImages;
-  readTrainingImages(trainingFolderName, extension, number, trainingImages);
-
-  printf("Creating detector...\n");
+  printf("Creating detector...%d\n",number);
   Ptr<FeatureDetector> detector;
   createDetector(detector, "SURF");
 
   std::vector<std::vector<KeyPoint> > trainingKeypoints;
   std::vector<Mat> trainingDescriptors;
 
-  printf("Detecting keypoints...\n");
-  detector->detect(trainingImages, trainingKeypoints);
-  printf("Computing descriptors...\n");
-  detector->compute(trainingImages, trainingKeypoints, trainingDescriptors);
+  for(int i = 1; i <= number; i++)
+  {
+    printf("Processing image %d\n", i);
+    // s = image filename
+    std::stringstream ss;
+    ss << trainingFolderName << std::setfill('0') << std::setw(4) << std::to_string(i) << extension;
+    std::string s = ss.str();
+
+    Mat im = imread(s, 1);
+    if(!im.data) {
+      DIE("Missing training image data!");
+    }
+
+    // Compute keypoints and descriptors for this image
+    std::vector<KeyPoint> imkps;
+    detector->detect(im, imkps);
+    Mat imdescs;
+    detector->compute(im, imkps, imdescs);
+
+    trainingKeypoints.push_back(imkps);
+    trainingDescriptors.push_back(imdescs);
+  }
 
   //Create a matcher based on the model data
-  printf("Creating matcher...\n");
-  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher("wills");
+  printf("Creating matcher '%s'...\n", matcherName);
+  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher(matcherName);
   printf("Adding training descriptors...\n");
   matcher->add(trainingDescriptors);
   printf("Training...\n");
@@ -67,7 +75,7 @@ int main( int argc, char** argv )
   matcher->match(trainingDescriptors.at(0), matches);
 
   //Save the matcher data
-  printf("Saving matcher...\n");
+  printf("Saving...\n");
   matcher->store();
 
   printf("Done!\n");

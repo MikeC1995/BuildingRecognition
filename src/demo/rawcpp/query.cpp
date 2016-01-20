@@ -14,61 +14,42 @@ void DIE(const char* message)
   exit(1);
 }
 
-void readQueryImages(std::string const &folderpath, std::string const &extension, int number, std::vector<Mat> &images)
-{
-  for(int i = 1; i <= number; i++)
-  {
-    printf("Reading image %d\n", i);
-    std::stringstream ss;
-    ss << folderpath << std::setfill('0') << std::setw(4) << std::to_string(i) << extension;
-    std::string s = ss.str();
-    Mat im = imread(s, 1);
-    images.push_back(im);
-    if(!im.data) {
-      DIE("Missing training image data!");
-    }
-  }
-}
-
 int main( int argc, char** argv )
 {
-  char* queryFolderName = argv[1];
+  if(argc != 5)
+  {
+    DIE("Missing arguments! Usage:\n\t./query <folder-name> <number> <class-name> <matcher-name>");
+  }
+  std::string queryFolderName(argv[1]);
+  queryFolderName += "/";
   int number = atoi(argv[2]);
-  char* class_name = argv[3];
-
-  strcat(queryFolderName, "/");
+  char* className = argv[3];
+  char* matcherName = argv[4];
   std::string const extension = ".jpg";
 
-  std::vector<Mat> queryImages;
-  readQueryImages(queryFolderName, extension, number, queryImages);
+  Recogniser r = *(new Recogniser(matcherName));
 
-  Ptr<FeatureDetector> detector;
-  createDetector(detector, "SURF");
-
-  // Load a matcher based on the model data
-  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher("wills");
-  printf("Loading matcher..\n");
-  matcher->load();
-  printf("Loaded!\n");
-
-  std::vector<DMatch> matches;
   struct timeval timstr;
   double tic,toc;
-  printf("Image,Class,# Descriptors,# Matches,Match time (s)\n");
-  for(int i = 0; i < queryImages.size(); i++)
-  {
-    matches.clear();
 
+  printf("Image | Class | #Matches | Match time (s)\n");
+  for(int i = 1; i <= number; i++)
+  {
+    // s = image filename
+    std::stringstream ss;
+    ss << queryFolderName << std::setfill('0') << std::setw(4) << std::to_string(i) << extension;
+    std::string s = ss.str();
+
+    // start timer
     gettimeofday(&timstr,NULL);
     tic=timstr.tv_sec+(timstr.tv_usec/1000000.0);
 
-    long original_num_matches;
-    //TODO: below is deprecated
-    //query(detector, matcher, queryImages.at(i), matches, original_num_matches);
+    long matches = r.query(s.c_str());
 
+    // end timer
     gettimeofday(&timstr,NULL);
     toc=timstr.tv_sec+(timstr.tv_usec/1000000.0);
 
-    printf("%d,%s,%lu,%lu,%.6lf\n", i, class_name,original_num_matches,matches.size(),toc-tic);
+    printf("%d,%s,%lu,%.6lf\n", i, className,matches,toc-tic);
   }
 }
