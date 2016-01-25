@@ -12,7 +12,7 @@ Recogniser::Recogniser(const char* _filename)
   createDetector(detector, "SURF");
   printf("Created\n");
   matcher = new SaveableFlannBasedMatcher(filename);
-  printf("Loading matcher..\n");
+  printf("Loading matcher '%s'...\n", filename);
   matcher->load();
   printf("Loaded!\n");
 }
@@ -33,11 +33,12 @@ long Recogniser::query(const char* imagepath)
   //KNN match the query images to the training set with N=2
   matcher->knnMatch(descriptors, knn_matches, 2);
 
-  long original_num_matches;
-  original_num_matches = knn_matches.size();
-
   //Filter the matches according to a threshold
   loweFilter(knn_matches, matches);
+
+  // Free memory
+  descriptors.release();
+  queryImage.release();
 
   return matches.size();
 }
