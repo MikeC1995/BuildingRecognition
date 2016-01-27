@@ -9,7 +9,7 @@ Recogniser::Recogniser(const char* _filename)
 {
   filename = _filename;
   printf("Creating detector...\n");
-  createDetector(detector, "SURF");
+  createDetector(detector, "SIFT");
   printf("Created\n");
   matcher = new SaveableFlannBasedMatcher(filename);
   printf("Loading matcher '%s'...\n", filename);

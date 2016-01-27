@@ -32,7 +32,7 @@ int main( int argc, char** argv )
 
   printf("Creating detector...%d\n",number);
   Ptr<FeatureDetector> detector;
-  createDetector(detector, "SURF");
+  createDetector(detector, "SIFT");
 
   std::vector<std::vector<KeyPoint> > trainingKeypoints;
   std::vector<Mat> trainingDescriptors;
