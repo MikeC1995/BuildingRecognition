@@ -6,8 +6,7 @@
 
 using namespace cv;
 
-void createDetector(Ptr<FeatureDetector> &detector, std::string type, double hessianThreshold = 400.0,
-    int numOctaves = 4, int numOctaveLayers = 2, int extended = 1, int upright = 0);
+void createDetector(Ptr<FeatureDetector> &detector, std::string type);
 
 void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors, Ptr<FeatureDetector> &detector);
 void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors,

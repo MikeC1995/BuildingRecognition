@@ -12,39 +12,20 @@
 
 using namespace cv;
 
-/* Create a SURF keypoint detector.
-**
+/* Create a feature point detector.
+**    In:   type (SIFT or SURF)
 **    Out:  detector
 */
-/*  Parameter descriptions
-**
-**  hessianThreshold
-**  The higher the threshold, fewer keypoints are detected
-**  Too low a value = weak feature points which have less repeatability.
-**  Too high a value = not be enough features to describe the image.
-**
-**  numOctaves
-**  Determines the size of the features the detector looks for.
-**  For large features, use a larger value.
-**
-**  numOctaveLayers
-**  Determines the range of feature sizes that can be detected.
-**  More layers = detect features of many different sizes
-**
-**  extended
-**  0 = 64 dimension descriptors; 1 = 128 dimensions
-**
-**  upright
-**  0 = compute orientation of each feature; 1 = do not compute orientation
-*/
-void createDetector(Ptr<FeatureDetector> &detector, std::string type, double hessianThreshold,
-    int numOctaves, int numOctaveLayers, int extended, int upright)
+void createDetector(Ptr<FeatureDetector> &detector, std::string type)
 {
+  printf("Creating %s detector\n", type.c_str());
   if(type.compare("SURF") == 0)
   {
-    detector = xfeatures2d::SURF::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+    detector = xfeatures2d::SURF::create();
   } else if(type.compare("SIFT") == 0) {
-    detector = xfeatures2d::SIFT::create(hessianThreshold, numOctaves, numOctaveLayers, extended, upright);
+    detector = xfeatures2d::SIFT::create();
+  } else {
+    printf("Invalid detector type!\n");
   }
 }
 
