@@ -13,6 +13,8 @@ void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKey
   std::vector<Mat> &trainingImages, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors,
   Ptr<FeatureDetector> &detector);
 
+void rootSIFT(cv::Mat& descriptors);
+
 void simpleFilter(Mat &queryDescriptors, std::vector<DMatch> &matches);
 void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatch> &matches);
 

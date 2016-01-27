@@ -16,18 +16,19 @@ void DIE(const char* message)
 
 int main( int argc, char** argv )
 {
-  if(argc != 5)
+  if(argc != 6)
   {
-    DIE("Missing arguments! Usage:\n\t./query <folder-name> <number> <class-name> <matcher-name>");
+    DIE("Missing arguments! Usage:\n\t./query <folder-name> <number> <class-name> <matcher-name> <feature-type>");
   }
   std::string queryFolderName(argv[1]);
   queryFolderName += "/";
   int number = atoi(argv[2]);
   char* className = argv[3];
   char* matcherName = argv[4];
+  char* featureType = argv[5];
   std::string const extension = ".jpg";
 
-  Recogniser r = *(new Recogniser(matcherName));
+  Recogniser r = *(new Recogniser(matcherName, featureType));
 
   struct timeval timstr;
   double tic,toc;

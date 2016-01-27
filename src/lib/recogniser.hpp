@@ -15,12 +15,13 @@ using namespace boost::python;
 class Recogniser
 {
 public:
-  Recogniser(const char* _filename);
+  Recogniser(const char* _filename, char* featureType);
 
   long query(const char* imagepath);
 
 protected:
   const char* filename;
+  char* featureType;
   Ptr<SaveableFlannBasedMatcher> matcher;
   Ptr<FeatureDetector> detector;
 };

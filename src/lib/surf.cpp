@@ -22,7 +22,7 @@ void createDetector(Ptr<FeatureDetector> &detector, std::string type)
   if(type.compare("SURF") == 0)
   {
     detector = xfeatures2d::SURF::create();
-  } else if(type.compare("SIFT") == 0) {
+  } else if(type.compare("SIFT") == 0 || type.compare("ROOTSIFT") == 0) {
     detector = xfeatures2d::SIFT::create();
   } else {
     printf("Invalid detector type!\n");
@@ -53,6 +53,22 @@ void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKey
   detector->detect(trainingImages, trainingKeypoints);
   detector->compute(queryImage, queryKeypoints, queryDescriptors);
   detector->compute(trainingImages, trainingKeypoints, trainingDescriptors);
+}
+
+// Compute the RootSIFT from SIFT according to Arandjelovic and Zisserman
+// https://alufr-ros-pkg.googlecode.com/svn/trunk/rgbdslam_freiburg/rgbdslam/src/node.cpp
+void rootSIFT(cv::Mat& descriptors)
+{
+  // Compute sums for L1 Norm
+  cv::Mat sums_vec;
+  descriptors = cv::abs(descriptors); //otherwise we draw sqrt of negative vals
+  cv::reduce(descriptors, sums_vec, 1 /*sum over columns*/, CV_REDUCE_SUM, CV_32FC1);
+  for(unsigned int row = 0; row < descriptors.rows; row++) {
+    int offset = row*descriptors.cols;
+    for(unsigned int col = 0; col < descriptors.cols; col++) {
+      descriptors.at<float>(offset + col) = sqrt(descriptors.at<float>(offset + col) / sums_vec.at<float>(row) /*L1-Normalize*/);
+    }
+  }
 }
 
 /* Filter a set of matches by thresholding at twice the minimum distance,

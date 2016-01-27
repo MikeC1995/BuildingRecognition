@@ -20,19 +20,20 @@ void readTrainingImages(std::string const &folderpath, std::string const &extens
 
 int main( int argc, char** argv )
 {
-  if(argc != 4)
+  if(argc != 5)
   {
-    DIE("Missing arguments! Usage:\n\t./train <folder-name> <number> <matcher-name>");
+    DIE("Missing arguments! Usage:\n\t./train <folder-name> <number> <matcher-name> <feature-type>");
   }
   std::string trainingFolderName(argv[1]);
   trainingFolderName += "/";
   int number = atoi(argv[2]);
   char* matcherName = argv[3];
+  char* featureType = argv[4];
   std::string const extension = ".jpg";
 
   printf("Creating detector...%d\n",number);
   Ptr<FeatureDetector> detector;
-  createDetector(detector, "SIFT");
+  createDetector(detector, featureType);
 
   std::vector<std::vector<KeyPoint> > trainingKeypoints;
   std::vector<Mat> trainingDescriptors;
@@ -55,6 +56,8 @@ int main( int argc, char** argv )
     detector->detect(im, imkps);
     Mat imdescs;
     detector->compute(im, imkps, imdescs);
+
+    if(strcmp(featureType, "ROOTSIFT") == 0) rootSIFT(imdescs);
 
     trainingKeypoints.push_back(imkps);
     trainingDescriptors.push_back(imdescs);

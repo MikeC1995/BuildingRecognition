@@ -1,15 +1,17 @@
 // header inclusion
 #include <stdio.h>
+#include <cstring>
 #include "recogniser.hpp"
 
 using namespace cv;
 using namespace boost::python;
 
-Recogniser::Recogniser(const char* _filename)
+Recogniser::Recogniser(const char* _filename, char* _featureType)
 {
   filename = _filename;
+  featureType = _featureType;
   printf("Creating detector...\n");
-  createDetector(detector, "SIFT");
+  createDetector(detector, featureType);
   printf("Created\n");
   matcher = new SaveableFlannBasedMatcher(filename);
   printf("Loading matcher '%s'...\n", filename);
@@ -30,6 +32,8 @@ long Recogniser::query(const char* imagepath)
   Mat descriptors;
   detector->detectAndCompute(queryImage, noArray(), keypoints, descriptors, false);
 
+  if(strcmp(featureType, "ROOTSIFT") == 0) rootSIFT(descriptors);
+
   //KNN match the query images to the training set with N=2
   matcher->knnMatch(descriptors, knn_matches, 2);
 
@@ -46,7 +50,7 @@ long Recogniser::query(const char* imagepath)
 // Python Wrapper
 BOOST_PYTHON_MODULE(recogniser)
 {
-  class_<Recogniser>("Recogniser", init<const char*>())
+  class_<Recogniser>("Recogniser", init<const char*, char*>())
       .def("query", &Recogniser::query)
   ;
 }
