@@ -93,18 +93,18 @@ int main( int argc, char** argv )
     std::vector<std::vector<DMatch> > knnmatches;
     std::vector<DMatch> matches;
     matches.clear();
-    matcher->knnMatch(queryDescriptors, folderDescriptors.at(i), knnmatches, 2);
+    matcher->knnMatch(folderDescriptors.at(i), queryDescriptors, knnmatches, 2);
     loweFilter(knnmatches, matches);
     Mat loweMatchesImage;
-    drawMatches(queryImage, queryKeypoints, folderImages.at(i), folderKeypoints.at(i), matches, loweMatchesImage);
+    drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, loweMatchesImage);
     imwrite(loweFilename.c_str(), loweMatchesImage);
 
     if(matches.size() > 4) {
       // RANSAC filter
       Mat homography;
-      ransacFilter(matches, queryKeypoints, folderKeypoints.at(i), homography);
+      ransacFilter(matches, folderKeypoints.at(i), queryKeypoints, homography);
       Mat ransacMatchesImage;
-      drawMatches(queryImage, queryKeypoints, folderImages.at(i), folderKeypoints.at(i), matches, ransacMatchesImage);
+      drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, ransacMatchesImage);
       imwrite(ransacFilename.c_str(), ransacMatchesImage);
     }
     printf("Image %d: %lu\n", i, matches.size());
