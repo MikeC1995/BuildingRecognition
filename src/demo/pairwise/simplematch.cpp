@@ -107,7 +107,7 @@ int main( int argc, char** argv )
       drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, ransacMatchesImage);
       imwrite(ransacFilename.c_str(), ransacMatchesImage);
     }
-    printf("Image %d: %lu\n", i, matches.size());
+    printf("%lu\n", matches.size());
   }
 
   return 0;
