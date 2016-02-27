@@ -74,6 +74,9 @@ app = Flask(__name__)
 app.config['ALLOWED_EXTENSIONS'] = set(['jpg', 'JPG'])
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.config['UPLOAD_FILENAME'] = 'query.jpg'
+app.config['SV_FOLDER'] = 'sv/'
+app.config['SV_FILENAMES'] = 'filenames.txt'
+app.config['SV_QUERY'] = 'query.jpg'
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -116,7 +119,7 @@ def uploaded_file(filename):
 # Saves each Street View image for a lat-lng with heading increments of theta
 # Tests for no available image by pixel color
 # Files written as sv/<lat>,<lng>-<heading>.jpg
-def saveSVImages(lat,lng,theta):
+def saveSVImages(lat,lng,theta,filenameFile):
     # Street View api key
     key = 'AIzaSyCP5BKla9RY0aObtlovjVzIBV2XEsfYj48'
 
@@ -136,43 +139,59 @@ def saveSVImages(lat,lng,theta):
         r = requests.get(url,stream=True)
         if r.status_code == 200:
             # open new file for writing and reading, binary
-            filename = 'sv/{},{}-{}.jpg'.format(lat,lng,heading)
-            with open(filename, 'wb+') as f:
+            filename = '{},{}-{}.jpg'.format(lat,lng,heading)
+            with open(app.config['SV_FOLDER'] + filename, 'wb+') as f:
                 for chunk in r:
                     f.write(chunk)
             # Open the newly written image to read pixel data
-            im = Image.open(filename)
+            im = Image.open(app.config['SV_FOLDER'] + filename)
             # if first pixel is "no image" grey then no SV data at this location
             # so delete image and return
             if im.load()[0,0] == (228,227,223):
                 print "No imagery at {},{}".format(lat,lng)
-                os.remove(filename)
+                os.remove(app.config['SV_FOLDER'] + filename)
                 return
+            else:
+                filenameFile.write(filename + '\n')
         else:
             print "Error getting sv image!"
 
-@app.route('/sv', methods=['POST'])
+@app.route('/sv', methods=['GET', 'POST'])
 def sv():
-    # read args from POST form data
-    args = request.form
-    lat1 = float(args.get('lat1'))
-    lng1 = float(args.get('lng1'))
-    lat2 = float(args.get('lat2'))
-    lng2 = float(args.get('lng2'))
-    density = int(args.get('density'))
-    theta = int(args.get('theta'))
+    if request.method == 'GET':
+        print 'GET!'
+        return jsonify(success='true')
+    elif request.method == 'POST':
+        # read args from POST form data
+        args = request.form
+        lat1 = float(args.get('lat1'))
+        lng1 = float(args.get('lng1'))
+        lat2 = float(args.get('lat2'))
+        lng2 = float(args.get('lng2'))
+        density = int(args.get('density'))
+        theta = int(args.get('theta'))
 
-    # iterate over mesh of lat-lngs at specified density,
-    # producing SV images at each point
-    lat_step = (lat1 - lat2)/density
-    lng_step = (lng1 - lng2)/density
-    for i in range(0,density+1,1):
-        for j in range(0,density+1,1):
-            lat = lat2 + j * lat_step
-            lng = lng2 + i * lng_step
-            saveSVImages(lat,lng,theta)
+        # Save the query image to file
+        queryFilePath = os.path.join(app.config['SV_FOLDER'], app.config['SV_QUERY'])
+        file = request.files['file']
+        if file:
+            file.save(queryFilePath)
 
-    return jsonify(success='true')
+        # Open file for writing filenames
+        filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
+
+        # iterate over mesh of lat-lngs at specified density,
+        # producing SV images at each point
+        lat_step = (lat1 - lat2)/density
+        lng_step = (lng1 - lng2)/density
+        for i in range(0,density+1,1):
+            for j in range(0,density+1,1):
+                lat = lat2 + j * lat_step
+                lng = lng2 + i * lng_step
+                saveSVImages(lat,lng,theta,filenameFile)
+
+        filenameFile.close()
+        return jsonify(success='true')
 
 if __name__ == '__main__':
     app.debug = True
