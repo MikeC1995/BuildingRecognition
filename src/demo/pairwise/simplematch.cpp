@@ -93,43 +93,19 @@ int main( int argc, char** argv )
     std::vector<std::vector<DMatch> > knnmatches;
     std::vector<DMatch> matches;
     matches.clear();
-
-    //
-    std::vector<KeyPoint> firstKeypoints;
-    std::vector<KeyPoint> secondKeypoints;
-    Mat firstDescriptors;
-    Mat secondDescriptors;
-    Mat firstImage;
-    Mat secondImage;
-    if(folderKeypoints.at(i).size() > queryKeypoints.size()) {
-      firstKeypoints = folderKeypoints.at(i);
-      secondKeypoints = queryKeypoints;
-      firstDescriptors = folderDescriptors.at(i);
-      secondDescriptors = queryDescriptors;
-      firstImage = folderImages.at(i);
-      secondImage = queryImage;
-    } else {
-      firstKeypoints = queryKeypoints;
-      secondKeypoints = folderKeypoints.at(i);
-      firstDescriptors = queryDescriptors;
-      secondDescriptors = folderDescriptors.at(i);
-      firstImage = queryImage;
-      secondImage = folderImages.at(i);
-    }
-
-    matcher->knnMatch(firstDescriptors, secondDescriptors, knnmatches, 2);
+    matcher->knnMatch(folderDescriptors.at(i), queryDescriptors, knnmatches, 2);
     loweFilter(knnmatches, matches);
     Mat loweMatchesImage;
-    drawMatches(firstImage, firstKeypoints, secondImage, secondKeypoints, matches, loweMatchesImage);
+    drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, loweMatchesImage);
     imwrite(loweFilename.c_str(), loweMatchesImage);
 
     if(matches.size() > 4) {
       // RANSAC filter
       Mat homography;
-      ransacFilter(matches, firstKeypoints, secondKeypoints, homography);
+      ransacFilter(matches, folderKeypoints.at(i), queryKeypoints, homography);
       std::cout << "homography = "<< std::endl << " "  << homography << std::endl << std::endl;
       Mat ransacMatchesImage;
-      drawMatches(firstImage, firstKeypoints, secondImage, secondKeypoints, matches, ransacMatchesImage);
+      drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, ransacMatchesImage);
       imwrite(ransacFilename.c_str(), ransacMatchesImage);
     }
     printf("%lu\n", matches.size());
