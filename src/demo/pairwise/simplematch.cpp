@@ -106,8 +106,32 @@ int main( int argc, char** argv )
       std::cout << "homography = "<< std::endl << " "  << homography << std::endl << std::endl;
       Mat ransacMatchesImage;
       drawMatches(folderImages.at(i), folderKeypoints.at(i), queryImage, queryKeypoints, matches, ransacMatchesImage);
+
+      std::vector<Point2f> objCorners(4);
+      objCorners[0] = Point(0,0);
+      objCorners[1] = Point( folderImages.at(i).cols, 0 );
+      objCorners[2] = Point(  folderImages.at(i).cols,  folderImages.at(i).rows );
+      objCorners[3] = Point( 0,  folderImages.at(i).rows );
+
+      std::vector<Point2f> scnCorners(4);
+
+      perspectiveTransform(objCorners, scnCorners, homography);
+
+      std::cout << "scnCorners = "<< std::endl << " "  << scnCorners << std::endl << std::endl;
+
+      line( ransacMatchesImage, scnCorners[0] + Point2f( folderImages.at(i).cols, 0), scnCorners[1] + Point2f( folderImages.at(i).cols, 0), Scalar(0, 255, 0), 4);
+      line( ransacMatchesImage, scnCorners[1] + Point2f( folderImages.at(i).cols, 0), scnCorners[2] + Point2f( folderImages.at(i).cols, 0), Scalar( 0, 255, 0), 4);
+      line( ransacMatchesImage, scnCorners[2] + Point2f( folderImages.at(i).cols, 0), scnCorners[3] + Point2f( folderImages.at(i).cols, 0), Scalar( 0, 255, 0), 4);
+      line( ransacMatchesImage, scnCorners[3] + Point2f( folderImages.at(i).cols, 0), scnCorners[0] + Point2f( folderImages.at(i).cols, 0), Scalar( 0, 255, 0), 4);
+
+      std::cout << contourArea(objCorners) << std::endl;
+      std::cout << contourArea(scnCorners) << std::endl;
+      std::cout << (contourArea(scnCorners)/contourArea(objCorners)) << std::endl << std::endl;
+
       imwrite(ransacFilename.c_str(), ransacMatchesImage);
+
     }
+
     printf("%lu\n", matches.size());
   }
 
