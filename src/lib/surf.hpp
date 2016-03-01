@@ -25,3 +25,4 @@ void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescripto
 void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors);
 
 void drawObject(Mat &input, Mat &homography, Mat &output);
+double calcProjectedAreaRatio(Mat &input, Mat &homography);

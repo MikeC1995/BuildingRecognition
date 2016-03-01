@@ -260,10 +260,10 @@ void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescripto
 }
 
 /* Consider the bounding box of input image as the object.
-** Tranform this box according to the homography matrix and draw it on the
+** Transform this box according to the homography matrix and draw it on the
 ** output image.
 */
-void drawObject(Mat &input, Mat &homography, Mat &output)
+void drawProjection(Mat &input, Mat &homography, Mat &output)
 {
   std::vector<Point2f> objCorners(4);
   objCorners[0] = Point(0,0);
@@ -279,4 +279,24 @@ void drawObject(Mat &input, Mat &homography, Mat &output)
   line( output, scnCorners[1] + Point2f( input.cols, 0), scnCorners[2] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
   line( output, scnCorners[2] + Point2f( input.cols, 0), scnCorners[3] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
   line( output, scnCorners[3] + Point2f( input.cols, 0), scnCorners[0] + Point2f( input.cols, 0), Scalar( 0, 255, 0), 4);
+}
+
+/* Consider the bounding box of input image as the object.
+** Transform this box according to the homography matrix, calculate the
+** area of the projected shape, and workout the ratio:
+** area of object/area of projection
+*/
+double calcProjectedAreaRatio(Mat &input, Mat &homography)
+{
+  std::vector<Point2f> objCorners(4);
+  objCorners[0] = Point(0,0);
+  objCorners[1] = Point( input.cols, 0 );
+  objCorners[2] = Point( input.cols, input.rows );
+  objCorners[3] = Point( 0, input.rows );
+
+  std::vector<Point2f> scnCorners(4);
+
+  perspectiveTransform(objCorners, scnCorners, homography);
+
+  return contourArea(scnCorners)/contourArea(objCorners);
 }
