@@ -10,6 +10,7 @@ import requests # for performing our own HTTP requests
 import math
 from PIL import Image
 
+from random import randint
 
 ###### ACCESS CONTROL ##########
 
@@ -139,7 +140,7 @@ def saveSVImages(lat,lng,theta,filenameFile):
         r = requests.get(url,stream=True)
         if r.status_code == 200:
             # open new file for writing and reading, binary
-            filename = '{},{}-{}.jpg'.format(lat,lng,heading)
+            filename = '{},{},{}.jpg'.format(lat,lng,heading)
             with open(app.config['SV_FOLDER'] + filename, 'wb+') as f:
                 for chunk in r:
                     f.write(chunk)
