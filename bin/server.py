@@ -10,8 +10,6 @@ import requests # for performing our own HTTP requests
 import math
 from PIL import Image
 
-from random import randint
-
 ###### ACCESS CONTROL ##########
 
 from datetime import timedelta
@@ -61,8 +59,6 @@ def crossdomain(origin=None, methods=None, headers=None,
     return decorator
 
 ################################
-
-
 
 
 # Load a recogniser for Wills Memorial Building
