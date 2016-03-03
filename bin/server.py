@@ -1,6 +1,7 @@
 import cv2
 import os
 import recogniser
+import feature_saver
 
 from flask import Flask
 from flask import request, redirect, url_for, send_from_directory, jsonify
@@ -72,6 +73,7 @@ app.config['ALLOWED_EXTENSIONS'] = set(['jpg', 'JPG'])
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.config['UPLOAD_FILENAME'] = 'query.jpg'
 app.config['SV_FOLDER'] = 'sv/'
+app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 
@@ -113,10 +115,7 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
 
-# Saves each Street View image for a lat-lng with heading increments of theta
-# Tests for no available image by pixel color
-# Files written as sv/<lat>,<lng>-<heading>.jpg
-def saveSVImages(lat,lng,theta,filenameFile):
+def saveSVImagesAndFeatures(lat,lng,theta,f_saver):
     # Street View api key
     key = 'AIzaSyCP5BKla9RY0aObtlovjVzIBV2XEsfYj48'
 
@@ -136,59 +135,53 @@ def saveSVImages(lat,lng,theta,filenameFile):
         r = requests.get(url,stream=True)
         if r.status_code == 200:
             # open new file for writing and reading, binary
-            filename = '{},{},{}.jpg'.format(lat,lng,heading)
-            with open(app.config['SV_FOLDER'] + filename, 'wb+') as f:
+            filename = '{},{},{}'.format(lat,lng,heading)
+            with open(app.config['SV_FOLDER'] + filename + '.jpg', 'wb+') as f:
                 for chunk in r:
                     f.write(chunk)
             # Open the newly written image to read pixel data
-            im = Image.open(app.config['SV_FOLDER'] + filename)
+            im = Image.open(app.config['SV_FOLDER'] + filename + '.jpg')
             # if first pixel is "no image" grey then no SV data at this location
             # so delete image and return
             if im.load()[0,0] == (228,227,223):
-                print "No imagery at {},{}".format(lat,lng)
-                os.remove(app.config['SV_FOLDER'] + filename)
+                print "...no imagery"
+                os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                 return
             else:
-                filenameFile.write(filename + '\n')
+                f_saver.saveFeatures(app.config['SV_FOLDER'] + filename + '.jpg', app.config['SV_FEATURES_FOLDER'], filename)
         else:
-            print "Error getting sv image!"
+            print "...error fetching Street View image!"
 
-@app.route('/sv', methods=['GET', 'POST'])
+@app.route('/sv', methods=['POST'])
 def sv():
-    if request.method == 'GET':
-        print 'GET!'
-        return jsonify(success='true')
-    elif request.method == 'POST':
-        # read args from POST form data
-        args = request.form
-        lat1 = float(args.get('lat1'))
-        lng1 = float(args.get('lng1'))
-        lat2 = float(args.get('lat2'))
-        lng2 = float(args.get('lng2'))
-        density = int(args.get('density'))
-        theta = int(args.get('theta'))
+    print "*** Fetching and processing Street View Images ***"
 
-        # Save the query image to file
-        queryFilePath = os.path.join(app.config['SV_FOLDER'], app.config['SV_QUERY'])
-        file = request.files['file']
-        if file:
-            file.save(queryFilePath)
+    # read args from POST form data
+    args = request.form
+    lat1 = float(args.get('lat1'))
+    lng1 = float(args.get('lng1'))
+    lat2 = float(args.get('lat2'))
+    lng2 = float(args.get('lng2'))
+    density = int(args.get('density'))
+    theta = int(args.get('theta'))
 
-        # Open file for writing filenames
-        filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
+    f_saver = feature_saver.FeatureSaver()
 
-        # iterate over mesh of lat-lngs at specified density,
-        # producing SV images at each point
-        lat_step = (lat1 - lat2)/density
-        lng_step = (lng1 - lng2)/density
-        for i in range(0,density+1,1):
-            for j in range(0,density+1,1):
-                lat = lat2 + j * lat_step
-                lng = lng2 + i * lng_step
-                saveSVImages(lat,lng,theta,filenameFile)
+    # iterate over mesh of lat-lngs at specified density,
+    # producing SV images at each point
+    pc_change = 1.0 / (density+1) / (density+1)
+    pc_complete = 0
+    lat_step = (lat1 - lat2)/density
+    lng_step = (lng1 - lng2)/density
+    for i in range(0,density+1,1):
+        for j in range(0,density+1,1):
+            lat = lat2 + j * lat_step
+            lng = lng2 + i * lng_step
+            saveSVImagesAndFeatures(lat,lng,theta,f_saver)
+            pc_complete += pc_change
+            print "{}%".format(pc_complete * 100)
 
-        filenameFile.close()
-        return jsonify(success='true')
+    return jsonify(success='true')
 
 if __name__ == '__main__':
     app.debug = True
