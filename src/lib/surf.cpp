@@ -18,7 +18,6 @@ using namespace cv;
 */
 void createDetector(Ptr<FeatureDetector> &detector, std::string type)
 {
-  printf("Creating %s detector\n", type.c_str());
   if(type.compare("SURF") == 0)
   {
     detector = xfeatures2d::SURF::create();
@@ -121,7 +120,6 @@ void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatc
       count++;
     }
   }
-  //printf("Lowe filter removed %d matches.\n", count);
   matches = good_matches;
 }
 
