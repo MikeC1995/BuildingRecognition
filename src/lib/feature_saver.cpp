@@ -37,9 +37,16 @@ void FeatureSaver::saveFeatures(const char* img_filename, const char* out_folder
   filename += ".xml.gz";
   FileStorage file(filename, FileStorage::WRITE);
 
+  std::vector<Point2f> objCorners(4);
+  objCorners[0] = Point(0,0);
+  objCorners[1] = Point( queryImage.cols, 0 );
+  objCorners[2] = Point( queryImage.cols, queryImage.rows );
+  objCorners[3] = Point( 0, queryImage.rows );
+
   // Write to file
   file << "keypoints" << queryKeypoints;
   file << "descriptors" << queryDescriptors;
+  file << "objCorners" << objCorners;
 
   // Close file
   file.release();
