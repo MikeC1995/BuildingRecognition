@@ -16,6 +16,6 @@ class DataGenerator
 public:
   DataGenerator();
 
-  void generate(const char* img_filename, const char* features_folder, const char* out_filename);
+  void generate(const char* img_filename, const char* filenames_filename, const char* features_folder, const char* out_filename);
 
 };
