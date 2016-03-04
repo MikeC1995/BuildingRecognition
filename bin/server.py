@@ -115,7 +115,7 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
 
-def saveSVImagesAndFeatures(lat,lng,theta,f_saver):
+def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
     # Street View api key
     key = 'AIzaSyCP5BKla9RY0aObtlovjVzIBV2XEsfYj48'
 
@@ -148,6 +148,7 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver):
                 os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                 return
             else:
+                filenameFile.write(filename + '.xml.gz\n')
                 f_saver.saveFeatures(app.config['SV_FOLDER'] + filename + '.jpg', app.config['SV_FEATURES_FOLDER'], filename)
         else:
             print "...error fetching Street View image!"
@@ -165,7 +166,11 @@ def sv():
     density = int(args.get('density'))
     theta = int(args.get('theta'))
 
+    # My C++ library to compute and save image features
     f_saver = feature_saver.FeatureSaver()
+
+     # Open file for writing filenames
+    filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
 
     # iterate over mesh of lat-lngs at specified density,
     # producing SV images at each point
@@ -177,10 +182,11 @@ def sv():
         for j in range(0,density+1,1):
             lat = lat2 + j * lat_step
             lng = lng2 + i * lng_step
-            saveSVImagesAndFeatures(lat,lng,theta,f_saver)
+            saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile)
             pc_complete += pc_change
             print "{}%".format(pc_complete * 100)
 
+    filenameFile.close()
     return jsonify(success='true')
 
 if __name__ == '__main__':
