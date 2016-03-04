@@ -2,9 +2,10 @@ import cv2
 import os
 import recogniser
 import feature_saver
+import data_generator
 
 from flask import Flask
-from flask import request, redirect, url_for, send_from_directory, jsonify
+from flask import request, redirect, url_for, send_from_directory, send_file, jsonify
 from werkzeug import secure_filename
 
 import requests # for performing our own HTTP requests
@@ -188,6 +189,23 @@ def sv():
 
     filenameFile.close()
     return jsonify(success='true')
+
+# produces a csv file detailing number of matches for query image against saved SV data
+@app.route('/sv/csv', methods=['POST'])
+def analyse():
+    # Save the query image to file
+    queryFilePath = os.path.join(app.config['SV_FOLDER'], app.config['SV_QUERY'])
+    file = request.files['file']
+    if file:
+        file.save(queryFilePath)
+
+    # My C++ library to process saved image features
+    dg = data_generator.DataGenerator()
+    filenameFile = app.config['SV_FOLDER'] + app.config['SV_FILENAMES']
+    dg.generate(queryFilePath, filenameFile, app.config['SV_FEATURES_FOLDER'], 'data.csv')
+    return send_file('data.csv', mimetype="text/csv")
+
+
 
 if __name__ == '__main__':
     app.debug = True
