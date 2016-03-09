@@ -78,6 +78,7 @@ app.config['SV_FOLDER'] = 'sv/'
 app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
+app.config['SV_DATA'] = 'data.csv'
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -203,13 +204,13 @@ def analyse():
     # My C++ library to process saved image features
     dg = data_generator.DataGenerator()
     filenameFile = app.config['SV_FOLDER'] + app.config['SV_FILENAMES']
-    dg.generate(queryFilePath, filenameFile, app.config['SV_FEATURES_FOLDER'], 'data.csv')
-    return send_file('data.csv', mimetype="text/csv")
+    dg.generate(queryFilePath, filenameFile, app.config['SV_FEATURES_FOLDER'], app.config['SV_DATA'])
+    return send_file(app.config['SV_DATA'], mimetype="text/csv")
 
 @app.route('/sv/location', methods=['GET'])
 def locate():
     l = locator.Locator()
-    l.locate('data.csv')
+    l.locate(app.config['SV_DATA'])
     return jsonify(lat=l.getLat(),lng=l.getLng())
 
 
