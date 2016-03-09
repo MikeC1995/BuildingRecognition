@@ -3,6 +3,7 @@ import os
 import recogniser
 import feature_saver
 import data_generator
+import locator
 
 from flask import Flask
 from flask import request, redirect, url_for, send_from_directory, send_file, jsonify
@@ -204,6 +205,13 @@ def analyse():
     filenameFile = app.config['SV_FOLDER'] + app.config['SV_FILENAMES']
     dg.generate(queryFilePath, filenameFile, app.config['SV_FEATURES_FOLDER'], 'data.csv')
     return send_file('data.csv', mimetype="text/csv")
+
+@app.route('/sv/location', methods=['GET'])
+def locate():
+    l = locator.Locator()
+    l.locate('data.csv')
+    return jsonify(lat=l.getLat(),lng=l.getLng())
+
 
 
 
