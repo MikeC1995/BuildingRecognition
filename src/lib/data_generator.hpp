@@ -17,5 +17,5 @@ public:
   DataGenerator();
 
   void generate(const char* img_filename, const char* filenames_filename, const char* features_folder, const char* out_filename);
-
+  void bigTree(const char* filenames_filename, const char* features_folder);
 };

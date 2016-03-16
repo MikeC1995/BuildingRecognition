@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include "data_generator.hpp"
+#include "saveable_matcher.hpp"
 
 using namespace cv;
 using namespace boost::python;
@@ -111,10 +112,78 @@ void DataGenerator::generate(const char* img_filename, const char* filenames_fil
   fclose(fp);
 }
 
+
+void DataGenerator::bigTree(const char* filenames_filename, const char* features_folder)
+{
+  // open the file containing the list of SV filenames
+  std::ifstream filenameFile;
+  std::string featuresFolder(features_folder);
+  std::string filenamesFilename(filenames_filename);
+  filenameFile.open(filenamesFilename);
+
+  // Create SIFT detector
+  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SIFT");
+
+  // Read the the SV image paths from file into vector
+  std::string imageFilePath;
+  std::vector<std::string> svPaths;
+  while(std::getline(filenameFile, imageFilePath))
+  {
+    svPaths.push_back(imageFilePath);
+  }
+
+  // Open a csv file to write results to and write headings
+  FILE * fp;
+  fp = fopen("intervals.txt", "w+");
+
+  // Saveable matcher to fast match against all the descriptors
+  Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
+  // Store the first of the descriptors just to have some data to perform a match against, required to the tree is built
+  Mat dummyDescs;
+  long unsigned int lastInterval = 0;
+  for(int i = 0; i < svPaths.size(); i++)
+  {
+    std::string full_path = featuresFolder + "/" + svPaths.at(i);
+    std::cout << full_path << std::endl;
+
+    FileStorage file(full_path, FileStorage::READ);
+    std::vector<KeyPoint> svKeypoints;
+    Mat svDescriptors;
+    std::vector<Point2f> objCorners;
+    file["keypoints"] >> svKeypoints;
+    file["descriptors"] >> svDescriptors;
+    file["objCorners"] >> objCorners;
+    std::cout << svKeypoints.size() << " " << svDescriptors.rows << "," << svDescriptors.cols << " " << objCorners.size() << std::endl;
+
+    if(i == 0)
+    {
+      // rememeber a descriptor so we can perform the necessary match with the saveable matcher
+      dummyDescs = svDescriptors;
+    } else {
+      // print intervals to file
+      lastInterval += svDescriptors.rows;
+      fprintf(fp, "%lu\n", lastInterval);
+    }
+    bigMatcher->add(svDescriptors);
+  }
+  fclose(fp);
+
+  std::cout << "Training big matcher" << std::endl;
+  bigMatcher->train();
+  // dummy match
+  std::vector<DMatch> matches;
+  bigMatcher->match(dummyDescs, matches);
+  std::cout << "Saving matcher" << std::endl;
+  bigMatcher->store();
+
+}
+
 // Python Wrapper
 BOOST_PYTHON_MODULE(data_generator)
 {
   class_<DataGenerator>("DataGenerator", init<>())
       .def("generate", &DataGenerator::generate)
+      .def("bigTree", &DataGenerator::bigTree)
   ;
 }
