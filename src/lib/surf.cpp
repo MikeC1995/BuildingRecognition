@@ -28,8 +28,8 @@ void createDetector(Ptr<FeatureDetector> &detector, std::string type)
   }
 }
 
-/* Create a SURF feature detector, and using it calculate keypoints and
-** descriptors the input images.
+/* Us a feature detector to calculate keypoints and
+** descriptors for the input image.
 */
 /* Single image.
 **  In:   image
@@ -38,6 +38,16 @@ void createDetector(Ptr<FeatureDetector> &detector, std::string type)
 void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors, Ptr<FeatureDetector> &detector)
 {
   detector->detectAndCompute(image, noArray(), keypoints, descriptors, false);
+}
+
+/* Multiple images.
+**  In:   images
+**  Out:  keypoints, descriptors
+*/
+void getKeypointsAndDescriptors(std::vector<Mat> &images, std::vector<std::vector<KeyPoint> > &keypoints, std::vector<Mat> &descriptors, Ptr<FeatureDetector> &detector)
+{
+  detector->detect(images, keypoints);
+  detector->compute(images, keypoints, descriptors);
 }
 
 /* Single query image, multiple training images.

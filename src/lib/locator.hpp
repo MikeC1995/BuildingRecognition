@@ -16,6 +16,7 @@ class Locator
 public:
   Locator();
 
+  void locateWithBigTree(const char* data_filename);
   void locate(const char* data_filename);
 
   double getLat();

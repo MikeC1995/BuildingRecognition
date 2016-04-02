@@ -137,6 +137,7 @@ void DataGenerator::bigTree(const char* filenames_filename, const char* features
   FILE * fp;
   fp = fopen("intervals.txt", "w+");
 
+  // TODO: set the interval to separate each latlng, ie. in an interval are all the descriptors for a lat-lng point (all headings)
   // Saveable matcher to fast match against all the descriptors
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
   // Store the first of the descriptors just to have some data to perform a match against, required to the tree is built

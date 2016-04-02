@@ -7,6 +7,7 @@
 #include <fstream>
 #include <cmath>
 #include "locator.hpp"
+#include "saveable_matcher.hpp"
 
 using namespace cv;
 using namespace boost::python;
@@ -21,6 +22,14 @@ double radians(double d) {
 }
 
 Locator::Locator(){}
+
+void Locator::locateWithBigTree(const char* img_filename)
+{
+  Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
+  bigMatcher.load();
+
+
+}
 
 void Locator::locate(const char* data_filename)
 {

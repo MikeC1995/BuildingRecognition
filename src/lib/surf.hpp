@@ -9,6 +9,7 @@ using namespace cv;
 void createDetector(Ptr<FeatureDetector> &detector, std::string type);
 
 void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Mat &descriptors, Ptr<FeatureDetector> &detector);
+void getKeypointsAndDescriptors(std::vector<Mat> &images, std::vector<std::vector<KeyPoint> > &keypoints, std::vector<Mat> &descriptors, Ptr<FeatureDetector> &detector);
 void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors,
   std::vector<Mat> &trainingImages, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors,
   Ptr<FeatureDetector> &detector);

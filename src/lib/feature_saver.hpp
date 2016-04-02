@@ -3,6 +3,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/features2d.hpp>
+#include <iostream>
+#include <fstream>
 #include "saveable_matcher.hpp"
 #include "surf.hpp"
 
@@ -17,6 +19,6 @@ class FeatureSaver
 public:
   FeatureSaver();
 
-  void saveFeatures(const char* img_filename, const char* extension, const char* out_folder);
+  void saveFeatures(const char* _img_folder, const char* _img_filenames, const char* out_folder, const char* out_filename);
 
 };
