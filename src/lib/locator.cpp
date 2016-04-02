@@ -23,11 +23,90 @@ double radians(double d) {
 
 Locator::Locator(){}
 
-void Locator::locateWithBigTree(const char* img_filename)
+struct bin {
+  std::string lat;
+  std::string lng;
+  long lower;
+  long upper;
+  int votes;
+};
+
+std::vector<std::string> splitString(const char* str, char delimiter)
+{
+  std::stringstream stream(str);
+  std::string segment;
+  std::vector<std::string> seglist;
+  while(std::getline(stream, segment, delimiter))
+  {
+     seglist.push_back(segment);
+  }
+  return seglist;
+}
+
+void Locator::locateWithBigTree(const char* img_filename, const char* bins_filename)
 {
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
   bigMatcher->load();
 
+  Mat queryImage = imread(img_filename);
+  if(queryImage.data == NULL)
+  {
+    printf("Can't read image '%s'\n", img_filename);
+    return;
+  }
+
+  // Create SIFT detector
+  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SIFT");
+
+  // Get query keypoints and descriptors
+  std::vector<KeyPoint> queryKeypoints;
+  Mat queryDescriptors;
+  getKeypointsAndDescriptors(queryImage, queryKeypoints, queryDescriptors, detector);
+  rootSIFT(queryDescriptors);
+
+  std::vector<std::vector<DMatch> > knn_matches;
+  bigMatcher->knnMatch(queryDescriptors, knn_matches, 2);
+  std::vector<DMatch> matches;
+  loweFilter(knn_matches, matches);
+  //bigMatcher->match(queryDescriptors, matches);
+
+  std::ifstream bins_file;
+  bins_file.open(bins_filename);
+  if(bins_file.is_open())
+  {
+    std::string line;
+    std::vector<bin> bins;
+    while(std::getline(bins_file, line))
+    {
+      std::vector<std::string> line_parts = splitString(line.c_str(), ',');
+      bin data;
+      data.lat = line_parts.at(0);
+      data.lng = line_parts.at(1);
+      data.lower = stol(line_parts.at(2));
+      data.upper = stol(line_parts.at(3));
+      data.votes = 0;
+      bins.push_back(data);
+    }
+
+    for(int i = 0; i < matches.size(); i++)
+    {
+      int index = matches.at(i).imgIdx;
+      for(int j = 0; j < bins.size(); j++)
+      {
+        if(index <= bins.at(j).upper && index >= bins.at(j).lower)
+        {
+          bins.at(j).votes++;
+        }
+      }
+    }
+    for(int j = 0; j < bins.size(); j++)
+    {
+      std::cout << bins.at(j).votes << " " << bins.at(j).lat << "," << bins.at(j).lng << std::endl;
+    }
+  }
+
+  printf("size: %lu\n", bigMatcher->getTrainDescriptors().size());
 
 }
 
@@ -138,5 +217,6 @@ BOOST_PYTHON_MODULE(locator)
       .def("locate", &Locator::locate)
       .def("getLat", &Locator::getLat)
       .def("getLng", &Locator::getLng)
+      .def("locateWithBigTree", &Locator::locateWithBigTree)
   ;
 }

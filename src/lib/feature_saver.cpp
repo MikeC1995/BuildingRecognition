@@ -111,12 +111,41 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
       {
         std::vector<std::string> list = splitString(filename_list.at(i).c_str(), ',');
         std::ostringstream entry;
-        entry << list.at(0) << "," << list.at(1) << "," << first_bin << "," << (last_bin + descriptors.at(i).rows - 1);
+        entry << list.at(0) << "," << list.at(1) << "," << first_bin << "," << (last_bin + 1);
         bin_file_out << entry.str() << std::endl;
       }
-      last_bin += descriptors.at(i).rows;
+      last_bin += 1;
     }
     bin_file_out.close();
+  }
+}
+
+void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folder) {
+  Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
+
+  std::ifstream filenames_file;
+  filenames_file.open(filenames_filename);
+  std::string line;
+  if(filenames_file.is_open())
+  {
+    while(std::getline(filenames_file, line))
+    {
+      std::stringstream matcher_name;
+      matcher_name << folder << line;
+      printf("%s\n", matcher_name.str().c_str());
+      char* matcher_name_c = new char[matcher_name.str().size() + 1];
+      strcpy(matcher_name_c, matcher_name.str().c_str()); // make copy as result of c_str() is valid only for string lifetime
+      Ptr<SaveableFlannBasedMatcher> smallMatcher = new SaveableFlannBasedMatcher(matcher_name_c);
+      smallMatcher->load();
+      std::vector<Mat> descriptors = smallMatcher->getTrainDescriptors();
+      bigMatcher->add(descriptors);
+      printf("adding %lu ---> new size: %lu\n", descriptors.size(), bigMatcher->getTrainDescriptors().size());
+    }
+    bigMatcher->train();
+    printf("size after train: %lu\n", bigMatcher->getTrainDescriptors().size());
+    std::vector<DMatch> dummy_matches;
+    bigMatcher->match(bigMatcher->getTrainDescriptors().at(0), dummy_matches); // dummy match required for OpenCV to build tree
+    bigMatcher->store();
   }
 }
 
@@ -125,5 +154,6 @@ BOOST_PYTHON_MODULE(feature_saver)
 {
   class_<FeatureSaver>("FeatureSaver", init<>())
       .def("saveFeatures", &FeatureSaver::saveFeatures)
+      .def("saveBigTree", &FeatureSaver::saveBigTree)
   ;
 }

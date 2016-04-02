@@ -214,9 +214,18 @@ def analyse():
 
 @app.route('/sv/location', methods=['GET'])
 def locate():
+    #l = locator.Locator()
+    #l.locate(app.config['SV_DATA'])
+    #return jsonify(lat=l.getLat(),lng=l.getLng())
+
+    # My C++ library to compute and save image features
+    f_saver = feature_saver.FeatureSaver()
+    f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
+
     l = locator.Locator()
-    l.locate(app.config['SV_DATA'])
-    return jsonify(lat=l.getLat(),lng=l.getLng())
+    l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['BINS_FILENAME']);
+
+    return jsonify(success='true')
 
 
 
