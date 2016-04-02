@@ -26,7 +26,7 @@ Locator::Locator(){}
 void Locator::locateWithBigTree(const char* img_filename)
 {
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
-  bigMatcher.load();
+  bigMatcher->load();
 
 
 }

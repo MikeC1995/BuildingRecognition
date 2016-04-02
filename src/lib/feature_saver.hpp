@@ -19,6 +19,6 @@ class FeatureSaver
 public:
   FeatureSaver();
 
-  void saveFeatures(const char* _img_folder, const char* _img_filenames, const char* out_folder, const char* out_filename);
+  void saveFeatures(const char* _img_folder, const char* _img_filenames, const char* _out_folder, const char* out_filename);
 
 };

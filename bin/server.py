@@ -1,6 +1,5 @@
 import cv2
 import os
-import recogniser
 import feature_saver
 import data_generator
 import locator
@@ -63,10 +62,6 @@ def crossdomain(origin=None, methods=None, headers=None,
 
 ################################
 
-
-# Load a recogniser for Wills Memorial Building
-r = recogniser.Recogniser("christchurch", "ROOTSIFT")
-
 # Create the flask REST server application
 app = Flask(__name__)
 
@@ -79,6 +74,7 @@ app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 app.config['SV_DATA'] = 'data.csv'
+app.config['BINS_FILENAME'] = 'bins.txt'
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -122,6 +118,7 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
     # Street View api key
     key = 'AIzaSyCP5BKla9RY0aObtlovjVzIBV2XEsfYj48'
 
+    img_filenames = ""
     # For each heading
     for i in range(0, int(math.floor(360/theta)),1):
         heading = i * theta
@@ -151,10 +148,14 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                 os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                 return
             else:
-                filenameFile.write(filename + '.xml.gz\n')
-                f_saver.saveFeatures(app.config['SV_FOLDER'] + filename + '.jpg', app.config['SV_FEATURES_FOLDER'], filename)
+                if(i == 0):
+                    img_filenames += (filename + '.jpg');
+                else:
+                    img_filenames += (":" + filename + '.jpg');
         else:
             print "...error fetching Street View image!"
+    filenameFile.write('{},{}\n'.format(lat,lng))
+    f_saver.saveFeatures(app.config['SV_FOLDER'], img_filenames, app.config['SV_FEATURES_FOLDER'], app.config['BINS_FILENAME'])
 
 @app.route('/sv', methods=['POST'])
 def sv():
@@ -174,6 +175,10 @@ def sv():
 
      # Open file for writing filenames
     filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
+
+    # Delete bins file if already exists
+    if os.path.exists(app.config['BINS_FILENAME']):
+        os.remove(app.config['BINS_FILENAME'])
 
     # iterate over mesh of lat-lngs at specified density,
     # producing SV images at each point
