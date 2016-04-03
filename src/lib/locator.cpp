@@ -104,7 +104,6 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   for(int i = 0; i < matches.size(); i++)
   {
     int index = matches.at(i).imgIdx;
-    std::cout << matches.at(i).imgIdx << std::endl;
     for(int j = 0; j < voteTable.size(); j++)
     {
       if(index == j) {
@@ -116,8 +115,8 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   // Sort the voteTable with the highest-matched images at the top
   std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
 
-  // Take the top 5 of these highest-matched images
-  voteTable.resize(5 <= voteTable.size() ? 5 : voteTable.size());
+  // Take the top 10 of these highest-matched images
+  if(voteTable.size() > 10) voteTable.resize(10);
   // Read each of these top SV images afresh to perform a rigourous matching
   std::string imgs_folder(_imgs_folder);
   for(int i = 0; i < voteTable.size(); i++)
@@ -167,29 +166,55 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     }
     // update the votes for this image to be the number of "rigourous" matches
     voteTable.at(i).votes = matches.size();
+
+    Mat img_matches;
+    std::stringstream ss;
+    ss << "matches" << i << ".jpg";
+    drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
+    imwrite(ss.str(), img_matches);
   }
   // Sort the vote table again according to these new votes
   std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
+  for(int i = 1; i < voteTable.size(); i++) { printf("%d\n", voteTable.at(i).votes); }
 
-  // Take the top scoring images to perform the triangulation
-  double x1 = stod(voteTable.at(0).lng);
-  double x2 = stod(voteTable.at(1).lng);
-  double y1 = stod(voteTable.at(0).lat);
-  double y2 = stod(voteTable.at(1).lat);
+  for(int i = 1; i < voteTable.size(); i++)
+  {
+    int j = i - 1;
+    // TODO
+    // less than 10 matches is probably superfluous matches, so report no object found
+    if(voteTable.at(j).votes < 5 || voteTable.at(i).votes < 5)
+    {
+      lat = -1;
+      lng = -1;
+      return;
+    }
 
-  double alpha1 = stod(voteTable.at(0).heading);
-  double alpha2 = stod(voteTable.at(1).heading);
-  double beta1 = nfmod(90.0 - alpha1, 360.0);
-  double beta2 = nfmod(90.0 - alpha2, 360.0);
-  double a =
-    ((x2-x1)*sin(radians(beta2)) - (y2-y1)*cos(radians(beta2))) /
-    (cos(radians(beta1))*sin(radians(beta2)) - sin(radians(beta1))*cos(radians(beta2)));
+    // Take the top scoring images to perform the triangulation
+    double x1 = stod(voteTable.at(j).lng);
+    double x2 = stod(voteTable.at(i).lng);
+    double y1 = stod(voteTable.at(j).lat);
+    double y2 = stod(voteTable.at(i).lat);
 
-  double x3 = x1 + a*cos(radians(beta1));
-  double y3 = y1 + a*sin(radians(beta1));
+    double alpha1 = stod(voteTable.at(j).heading);
+    double alpha2 = stod(voteTable.at(i).heading);
+    double beta1 = nfmod(90.0 - alpha1, 360.0);
+    double beta2 = nfmod(90.0 - alpha2, 360.0);
+    double a =
+      ((x2-x1)*sin(radians(beta2)) - (y2-y1)*cos(radians(beta2))) /
+      (cos(radians(beta1))*sin(radians(beta2)) - sin(radians(beta1))*cos(radians(beta2)));
 
-  lng = floor(x3 * 10000000000.0) / 10000000000.0;
-  lat = floor(y3 * 10000000000.0) / 10000000000.0;
+    double x3 = x1 + a*cos(radians(beta1));
+    double y3 = y1 + a*sin(radians(beta1));
+
+    lng = floor(x3 * 10000000000.0) / 10000000000.0;
+    lat = floor(y3 * 10000000000.0) / 10000000000.0;
+    if(!std::isinf(lng) && !std::isinf(lat))
+    {
+      printf("Calculated: %lf,%lf\n", lat,lng);
+      return;
+    }
+  }
+
 }
 
 void Locator::locateWithCsv(const char* data_filename)

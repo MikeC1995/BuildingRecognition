@@ -81,6 +81,7 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
 // Read descriptors from stored SaveableFlannBasedMatchers (names given by filenames_file) and
 // build a big tree from this (one big SaveableFlannBasedMatcher), saving to disk as "bigmatcher"
 void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folder) {
+  printf("saveBigTree\n");
   // Create big matcher
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
 
@@ -103,10 +104,13 @@ void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folde
       std::vector<Mat> descriptors = smallMatcher->getTrainDescriptors();
       bigMatcher->add(descriptors);
     }
+    printf("Training!\n");
     // Build and save the big matcher to disk
     bigMatcher->train();
     std::vector<DMatch> dummy_matches;
+    printf("Matching!\n");
     bigMatcher->match(bigMatcher->getTrainDescriptors().at(0), dummy_matches); // dummy match required for OpenCV to build tree
+    printf("Storing!\n");
     bigMatcher->store();
   }
 }

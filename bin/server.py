@@ -127,7 +127,7 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
         url += ('&location={},{}'.format(lat,lng))
         url += ('&fov={}'.format(theta))
         url += ('&heading={}'.format(heading))
-        url += '&pitch=35'
+        url += '&pitch=25'
         url += ('&key={}'.format(key))
 
         # Get the image, stream it to file
@@ -190,6 +190,10 @@ def sv():
             print "{}%".format(pc_complete * 100)
 
     filenameFile.close()
+
+    # My C++ library to compute and save image features
+    f_saver = feature_saver.FeatureSaver()
+    f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
     return jsonify(success='true')
 
 # produces a csv file detailing number of matches for query image against saved SV data
@@ -209,13 +213,12 @@ def analyse():
 
 @app.route('/sv/location', methods=['GET'])
 def locate():
-    # My C++ library to compute and save image features
-    f_saver = feature_saver.FeatureSaver()
-    f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
-
     l = locator.Locator()
     l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
-    return jsonify(lat=l.getLat(),lng=l.getLng())
+    lat = l.getLat()
+    lng = l.getLng()
+    print "Python reads {},{}".format(lat, lng)
+    return jsonify(lat=lat,lng=lng)
 
 if __name__ == '__main__':
     app.debug = True
