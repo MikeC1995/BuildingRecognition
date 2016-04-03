@@ -43,15 +43,6 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
     images.push_back(img);
   }
 
-  // Create saveable matcher with name of format <lat>,<lng>
-  std::vector<std::string> seglist = splitString(filename_list.at(0).c_str(), ',');
-  std::ostringstream matcher_name;
-  std::string out_folder(_out_folder);
-  matcher_name << out_folder << seglist.at(0) << "," << seglist.at(1);
-  char* matcher_name_c = new char[matcher_name.str().size() + 1];
-  strcpy(matcher_name_c, matcher_name.str().c_str()); // make copy as result of c_str() is valid only for string lifetime
-  Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher(matcher_name_c);
-
   // Create SIFT detector
   Ptr<FeatureDetector> detector;
   createDetector(detector, "SIFT");
@@ -61,23 +52,32 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
   std::vector<Mat> descriptors;
   getKeypointsAndDescriptors(images, keypoints, descriptors, detector);
 
-  // Convert query keypoints to RootSIFT
+  // Convert query descriptors to RootSIFT and save to disk
   for(int i = 0; i < descriptors.size(); i++)
   {
     rootSIFT(descriptors.at(i));
+
+    // Create saveable matcher with name of format <lat>,<lng>,<heading>
+    std::ostringstream matcher_name;
+    std::string out_folder(_out_folder);
+    size_t lastindex = filename_list.at(i).find_last_of(".");
+    std::string rawname = filename_list.at(i).substr(0, lastindex); // remove extension
+    matcher_name << out_folder << rawname;
+    char* matcher_name_c = new char[matcher_name.str().size() + 1];
+    strcpy(matcher_name_c, matcher_name.str().c_str()); // make copy as result of c_str() is valid only for string lifetime
+    Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher(matcher_name_c);
+
+    // Build matcher tree
+    matcher->add(descriptors.at(i));
+    matcher->train();
+    std::vector<DMatch> dummy_matches;
+    matcher->match(descriptors.at(i), dummy_matches); // dummy match required for OpenCV to build tree
+
+    // Save the matcher to disk
+    matcher->store();
   }
 
-  // Build matcher tree
-  matcher->add(descriptors);
-  matcher->train();
-  std::vector<DMatch> dummy_matches;
-  matcher->match(descriptors.at(0), dummy_matches); // dummy match required for OpenCV to build tree
-
-  // Save the matcher to disk
-  matcher->store();
-
-  // Write to the bins file, with format: <lat>,<lng>,<start-bin>,<end-bin>
-
+  // Write to the bins file, with format <lat>,<lng>,<start-bin>,<end-bin>:
   // Read last bin written, this is the first_bin
   std::ifstream bin_file_in;
   bin_file_in.open(out_filename);
@@ -107,13 +107,10 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
     long last_bin = first_bin;
     for(int i = 0; i < descriptors.size(); i++)
     {
-      if(i == descriptors.size() - 1)
-      {
-        std::vector<std::string> list = splitString(filename_list.at(i).c_str(), ',');
-        std::ostringstream entry;
-        entry << list.at(0) << "," << list.at(1) << "," << first_bin << "," << (last_bin + 1);
-        bin_file_out << entry.str() << std::endl;
-      }
+      std::vector<std::string> list = splitString(filename_list.at(i).c_str(), ',');
+      std::ostringstream entry;
+      entry << list.at(0) << "," << list.at(1) << "," << list.at(2) << "," << first_bin << "," << (last_bin + 1);
+      bin_file_out << entry.str() << std::endl;
       last_bin += 1;
     }
     bin_file_out.close();
@@ -139,10 +136,8 @@ void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folde
       smallMatcher->load();
       std::vector<Mat> descriptors = smallMatcher->getTrainDescriptors();
       bigMatcher->add(descriptors);
-      printf("adding %lu ---> new size: %lu\n", descriptors.size(), bigMatcher->getTrainDescriptors().size());
     }
     bigMatcher->train();
-    printf("size after train: %lu\n", bigMatcher->getTrainDescriptors().size());
     std::vector<DMatch> dummy_matches;
     bigMatcher->match(bigMatcher->getTrainDescriptors().at(0), dummy_matches); // dummy match required for OpenCV to build tree
     bigMatcher->store();

@@ -148,13 +148,13 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                 os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                 return
             else:
+                filenameFile.write('{},{},{}\n'.format(lat,lng,heading))
                 if(i == 0):
                     img_filenames += (filename + '.jpg');
                 else:
                     img_filenames += (":" + filename + '.jpg');
         else:
             print "...error fetching Street View image!"
-    filenameFile.write('{},{}\n'.format(lat,lng))
     f_saver.saveFeatures(app.config['SV_FOLDER'], img_filenames, app.config['SV_FEATURES_FOLDER'], app.config['BINS_FILENAME'])
 
 @app.route('/sv', methods=['POST'])
@@ -223,9 +223,8 @@ def locate():
     f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
 
     l = locator.Locator()
-    l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['BINS_FILENAME']);
-
-    return jsonify(success='true')
+    l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
+    return jsonify(lat=l.getLat(),lng=l.getLng())
 
 
 

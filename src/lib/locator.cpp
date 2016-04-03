@@ -23,14 +23,18 @@ double radians(double d) {
 
 Locator::Locator(){}
 
-struct bin {
+// Data struc to store the vote associated with a particular SV image
+struct vote {
   std::string lat;
   std::string lng;
-  long lower;
-  long upper;
+  std::string heading;
   int votes;
 };
+bool vote_sorter(vote const &lhs, vote const &rhs) {
+  return lhs.votes > rhs.votes; // sorts in descending order
+}
 
+// Split a string by the delimiter, putting each segment as an entry in the vector
 std::vector<std::string> splitString(const char* str, char delimiter)
 {
   std::stringstream stream(str);
@@ -43,11 +47,16 @@ std::vector<std::string> splitString(const char* str, char delimiter)
   return seglist;
 }
 
-void Locator::locateWithBigTree(const char* img_filename, const char* bins_filename)
+// Locate the object in the image given by img_filename by matching against the stored bigmatcher,
+// taking the top scoring images, and performing a rigourous matching against these.
+// (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
+void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
+  // Load the big matcher
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
   bigMatcher->load();
 
+  // Load the query image
   Mat queryImage = imread(img_filename);
   if(queryImage.data == NULL)
   {
@@ -65,52 +74,125 @@ void Locator::locateWithBigTree(const char* img_filename, const char* bins_filen
   getKeypointsAndDescriptors(queryImage, queryKeypoints, queryDescriptors, detector);
   rootSIFT(queryDescriptors);
 
+  // Match query image against all SV images using bigmatcher
   std::vector<std::vector<DMatch> > knn_matches;
   bigMatcher->knnMatch(queryDescriptors, knn_matches, 2);
   std::vector<DMatch> matches;
   loweFilter(knn_matches, matches);
-  //bigMatcher->match(queryDescriptors, matches);
 
-  std::ifstream bins_file;
-  bins_file.open(bins_filename);
-  if(bins_file.is_open())
+  // Read the filenames_file to build a vote table with each entry set to 0
+  std::ifstream filenames_file;
+  filenames_file.open(filenames_filename);
+  if(!filenames_file.is_open())
   {
-    std::string line;
-    std::vector<bin> bins;
-    while(std::getline(bins_file, line))
-    {
-      std::vector<std::string> line_parts = splitString(line.c_str(), ',');
-      bin data;
-      data.lat = line_parts.at(0);
-      data.lng = line_parts.at(1);
-      data.lower = stol(line_parts.at(2));
-      data.upper = stol(line_parts.at(3));
-      data.votes = 0;
-      bins.push_back(data);
-    }
+    return;
+  }
+  std::string line;
+  std::vector<vote> voteTable;
+  while(std::getline(filenames_file, line))
+  {
+    std::vector<std::string> line_parts = splitString(line.c_str(), ',');
+    vote data;
+    data.lat = line_parts.at(0);
+    data.lng = line_parts.at(1);
+    data.heading = line_parts.at(2);
+    data.votes = 0;
+    voteTable.push_back(data);
+  }
 
-    for(int i = 0; i < matches.size(); i++)
+  // Populate the voteTable; vote for each image which a match corresponds to
+  for(int i = 0; i < matches.size(); i++)
+  {
+    int index = matches.at(i).imgIdx;
+    std::cout << matches.at(i).imgIdx << std::endl;
+    for(int j = 0; j < voteTable.size(); j++)
     {
-      int index = matches.at(i).imgIdx;
-      for(int j = 0; j < bins.size(); j++)
-      {
-        if(index <= bins.at(j).upper && index >= bins.at(j).lower)
-        {
-          bins.at(j).votes++;
-        }
+      if(index == j) {
+        voteTable.at(j).votes++;
       }
-    }
-    for(int j = 0; j < bins.size(); j++)
-    {
-      std::cout << bins.at(j).votes << " " << bins.at(j).lat << "," << bins.at(j).lng << std::endl;
     }
   }
 
-  printf("size: %lu\n", bigMatcher->getTrainDescriptors().size());
+  // Sort the voteTable with the highest-matched images at the top
+  std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
 
+  // Take the top 5 of these highest-matched images
+  voteTable.resize(5 <= voteTable.size() ? 5 : voteTable.size());
+  // Read each of these top SV images afresh to perform a rigourous matching
+  std::string imgs_folder(_imgs_folder);
+  for(int i = 0; i < voteTable.size(); i++)
+  {
+    // Read image
+    Mat svImage = imread(imgs_folder + voteTable.at(i).lat + "," + voteTable.at(i).lng + "," + voteTable.at(i).heading + ".jpg");
+    if(svImage.data == NULL)
+    {
+      printf("Unable to load sv image!\n");
+      return;
+    }
+    // Get query keypoints and descriptors
+    std::vector<KeyPoint> svKeypoints;
+    Mat svDescriptors;
+    getKeypointsAndDescriptors(svImage, svKeypoints, svDescriptors, detector);
+    rootSIFT(svDescriptors);
+
+    // Match as standard
+    Ptr<FlannBasedMatcher> matcher = new FlannBasedMatcher();
+    matches.clear();
+    knn_matches.clear();
+    matcher->knnMatch(svDescriptors, queryDescriptors, knn_matches, 2);
+    loweFilter(knn_matches, matches);
+
+    // Perform geometric verification
+    if(matches.size() > 4) {
+      // RANSAC filter
+      Mat homography;
+      ransacFilter(matches, svKeypoints, queryKeypoints, homography);
+
+      // if a homography was successfully computed...
+      if(homography.cols != 0 && homography.rows != 0)
+      {
+        std::vector<Point2f> objCorners(4);
+        objCorners[0] = Point(0,0);
+        objCorners[1] = Point( svImage.cols, 0 );
+        objCorners[2] = Point( svImage.cols, svImage.rows );
+        objCorners[3] = Point( 0, svImage.rows );
+        double area = calcProjectedAreaRatio(objCorners, homography);
+        // do not count these matches if projected area too small, (likely
+        // mapping to single point => erroneous matching)
+        if(area < 0.0005)
+        {
+          matches.clear();
+        }
+      }
+    }
+    // update the votes for this image to be the number of "rigourous" matches
+    voteTable.at(i).votes = matches.size();
+  }
+  // Sort the vote table again according to these new votes
+  std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
+
+  // Take the top scoring images to perform the triangulation
+  double x1 = stod(voteTable.at(0).lng);
+  double x2 = stod(voteTable.at(1).lng);
+  double y1 = stod(voteTable.at(0).lat);
+  double y2 = stod(voteTable.at(1).lat);
+
+  double alpha1 = stod(voteTable.at(0).heading);
+  double alpha2 = stod(voteTable.at(1).heading);
+  double beta1 = nfmod(90.0 - alpha1, 360.0);
+  double beta2 = nfmod(90.0 - alpha2, 360.0);
+  double a =
+    ((x2-x1)*sin(radians(beta2)) - (y2-y1)*cos(radians(beta2))) /
+    (cos(radians(beta1))*sin(radians(beta2)) - sin(radians(beta1))*cos(radians(beta2)));
+
+  double x3 = x1 + a*cos(radians(beta1));
+  double y3 = y1 + a*sin(radians(beta1));
+
+  lng = floor(x3 * 10000000000.0) / 10000000000.0;
+  lat = floor(y3 * 10000000000.0) / 10000000000.0;
 }
 
-void Locator::locate(const char* data_filename)
+void Locator::locateWithCsv(const char* data_filename)
 {
   std::ifstream file(data_filename);
 
@@ -214,9 +296,9 @@ double Locator::getLng() {
 BOOST_PYTHON_MODULE(locator)
 {
   class_<Locator>("Locator", init<>())
-      .def("locate", &Locator::locate)
-      .def("getLat", &Locator::getLat)
-      .def("getLng", &Locator::getLng)
-      .def("locateWithBigTree", &Locator::locateWithBigTree)
+    .def("locateWithBigTree", &Locator::locateWithBigTree)
+    .def("locateWithCsv", &Locator::locateWithCsv)
+    .def("getLat", &Locator::getLat)
+    .def("getLng", &Locator::getLng)
   ;
 }
