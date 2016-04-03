@@ -74,7 +74,6 @@ app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 app.config['SV_DATA'] = 'data.csv'
-app.config['BINS_FILENAME'] = 'bins.txt'
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -155,7 +154,7 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                     img_filenames += (":" + filename + '.jpg');
         else:
             print "...error fetching Street View image!"
-    f_saver.saveFeatures(app.config['SV_FOLDER'], img_filenames, app.config['SV_FEATURES_FOLDER'], app.config['BINS_FILENAME'])
+    f_saver.saveFeatures(app.config['SV_FOLDER'], img_filenames, app.config['SV_FEATURES_FOLDER'])
 
 @app.route('/sv', methods=['POST'])
 def sv():
@@ -175,10 +174,6 @@ def sv():
 
      # Open file for writing filenames
     filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
-
-    # Delete bins file if already exists
-    if os.path.exists(app.config['BINS_FILENAME']):
-        os.remove(app.config['BINS_FILENAME'])
 
     # iterate over mesh of lat-lngs at specified density,
     # producing SV images at each point
@@ -214,10 +209,6 @@ def analyse():
 
 @app.route('/sv/location', methods=['GET'])
 def locate():
-    #l = locator.Locator()
-    #l.locate(app.config['SV_DATA'])
-    #return jsonify(lat=l.getLat(),lng=l.getLng())
-
     # My C++ library to compute and save image features
     f_saver = feature_saver.FeatureSaver()
     f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
@@ -225,9 +216,6 @@ def locate():
     l = locator.Locator()
     l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
     return jsonify(lat=l.getLat(),lng=l.getLng())
-
-
-
 
 if __name__ == '__main__':
     app.debug = True

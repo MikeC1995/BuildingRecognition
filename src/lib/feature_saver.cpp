@@ -9,6 +9,7 @@
 using namespace cv;
 using namespace boost::python;
 
+// Split a string by the delimiter, putting each segment as an entry in the vector
 std::vector<std::string> splitString(const char* str, char delimiter)
 {
   std::stringstream stream(str);
@@ -23,10 +24,9 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 
 FeatureSaver::FeatureSaver(){}
 
-void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filenames, const char* _out_folder, const char* out_filename)
+// Store the descriptors (using a SaveableFlannBasedMatcher) for each image in _img_folder given by _img_filenames.
+void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filenames, const char* _out_folder)
 {
-  // TODO: may need to store object corners?
-
   // separate img_filenames with ':' delimiter
   std::vector<std::string> filename_list = splitString(_img_filenames, ':');
 
@@ -76,50 +76,15 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
     // Save the matcher to disk
     matcher->store();
   }
-
-  // Write to the bins file, with format <lat>,<lng>,<start-bin>,<end-bin>:
-  // Read last bin written, this is the first_bin
-  std::ifstream bin_file_in;
-  bin_file_in.open(out_filename);
-  std::string line, last_line;
-  if(bin_file_in.is_open())
-  {
-    while(std::getline(bin_file_in, line))
-    {
-      last_line = line;
-    }
-  }
-  long first_bin;
-  if(splitString(last_line.c_str(), ',').size() > 0)
-  {
-    first_bin = stol(splitString(last_line.c_str(), ',').at(3)) + 1;
-  } else {
-    first_bin = 0;
-  }
-  bin_file_in.close();
-
-  // Count # descriptors in each image for this lat-lng and add together to find this bin width
-  // Write the last bin to the file
-  std::ofstream bin_file_out;
-  bin_file_out.open(out_filename, std::ios::app);
-  if(bin_file_out.is_open())
-  {
-    long last_bin = first_bin;
-    for(int i = 0; i < descriptors.size(); i++)
-    {
-      std::vector<std::string> list = splitString(filename_list.at(i).c_str(), ',');
-      std::ostringstream entry;
-      entry << list.at(0) << "," << list.at(1) << "," << list.at(2) << "," << first_bin << "," << (last_bin + 1);
-      bin_file_out << entry.str() << std::endl;
-      last_bin += 1;
-    }
-    bin_file_out.close();
-  }
 }
 
+// Read descriptors from stored SaveableFlannBasedMatchers (names given by filenames_file) and
+// build a big tree from this (one big SaveableFlannBasedMatcher), saving to disk as "bigmatcher"
 void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folder) {
+  // Create big matcher
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
 
+  // Read each small matcher name from the filenames_file
   std::ifstream filenames_file;
   filenames_file.open(filenames_filename);
   std::string line;
@@ -127,6 +92,7 @@ void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folde
   {
     while(std::getline(filenames_file, line))
     {
+      // Load the small matcher and add its descriptors to the big matcher
       std::stringstream matcher_name;
       matcher_name << folder << line;
       printf("%s\n", matcher_name.str().c_str());
@@ -137,6 +103,7 @@ void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folde
       std::vector<Mat> descriptors = smallMatcher->getTrainDescriptors();
       bigMatcher->add(descriptors);
     }
+    // Build and save the big matcher to disk
     bigMatcher->train();
     std::vector<DMatch> dummy_matches;
     bigMatcher->match(bigMatcher->getTrainDescriptors().at(0), dummy_matches); // dummy match required for OpenCV to build tree
