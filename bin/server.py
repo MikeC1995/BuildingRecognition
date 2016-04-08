@@ -10,6 +10,7 @@ from werkzeug import secure_filename
 
 import requests # for performing our own HTTP requests
 import math
+import PIL
 from PIL import Image
 
 ###### ACCESS CONTROL ##########
@@ -65,8 +66,6 @@ def crossdomain(origin=None, methods=None, headers=None,
 # Create the flask REST server application
 app = Flask(__name__)
 
-# a set of allowed file extensions and the path to the folder to save them in
-app.config['ALLOWED_EXTENSIONS'] = set(['jpg', 'JPG'])
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.config['UPLOAD_FILENAME'] = 'query.jpg'
 app.config['SV_FOLDER'] = 'sv/'
@@ -74,11 +73,6 @@ app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 app.config['SV_DATA'] = 'data.csv'
-
-# For a given file, return whether it's an allowed type or not
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
 
 # main route
 # GET       Return hello message
@@ -95,7 +89,7 @@ def hello_world():
         # Build the path to save it to
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], app.config['UPLOAD_FILENAME'])
 
-        if file and allowed_file(file.filename):
+        if file:
             # Make the filename safe, remove unsupported chars
             filename = secure_filename(file.filename)
             # Save file to upload folder as query.jpg
@@ -212,13 +206,51 @@ def analyse():
     return send_file(app.config['SV_DATA'], mimetype="text/csv")
 
 @app.route('/sv/location', methods=['GET'])
-def locate():
+def locate2():
     l = locator.Locator()
     l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
     lat = l.getLat()
     lng = l.getLng()
-    print "Python reads {},{}".format(lat, lng)
+
     return jsonify(lat=lat,lng=lng)
+
+##################### PRODUCTION ROUTES ##########################
+@app.route('/locate', methods=['POST'])
+def locate():
+    # Get the file
+    file = request.files['file']
+    # Path to save query image to sv/query.jpg
+    filepath = os.path.join(app.config['SV_FOLDER'], app.config['SV_QUERY'])
+    if file:
+        # Ensure filename is safe and save
+        filename = secure_filename(file.filename)
+        file.save(filepath)
+
+        # resize the image (too large causes out-of-memory error)
+        img = Image.open(filepath)
+        if img.size[0] < img.size[1]:
+            width = 500
+            wpercent = (width/float(img.size[0]))
+            height = int((float(img.size[1]) * float(wpercent)))
+        else:
+            height = 500
+            hpercent = (height/float(img.size[1]))
+            width = int((float(img.size[0]) * float(hpercent)))
+
+        img = img.resize((width, height), PIL.Image.ANTIALIAS)
+        img.save(filepath)
+    else:
+        return jsonify(success=False)
+
+    # locate the object in the query image and send response
+    l = locator.Locator()
+    success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
+    if success:
+        return jsonify(success=success,lat=l.getLat(),lng=l.getLng())
+    else:
+        return jsonify(success=success)
+
+
 
 if __name__ == '__main__':
     app.debug = True

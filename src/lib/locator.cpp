@@ -50,7 +50,7 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 // Locate the object in the image given by img_filename by matching against the stored bigmatcher,
 // taking the top scoring images, and performing a rigourous matching against these.
 // (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
-void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
+bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
   // Load the big matcher
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
@@ -61,7 +61,7 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   if(queryImage.data == NULL)
   {
     printf("Can't read image '%s'\n", img_filename);
-    return;
+    return false;
   }
 
   // Create SIFT detector
@@ -85,7 +85,7 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   filenames_file.open(filenames_filename);
   if(!filenames_file.is_open())
   {
-    return;
+    return false;
   }
   std::string line;
   std::vector<vote> voteTable;
@@ -126,7 +126,7 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     if(svImage.data == NULL)
     {
       printf("Unable to load sv image!\n");
-      return;
+      return false;
     }
     // Get query keypoints and descriptors
     std::vector<KeyPoint> svKeypoints;
@@ -175,18 +175,15 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   }
   // Sort the vote table again according to these new votes
   std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
-  for(int i = 1; i < voteTable.size(); i++) { printf("%d\n", voteTable.at(i).votes); }
+  for(int i = 0; i < voteTable.size(); i++) { std::cout << voteTable.at(i).votes << std::endl; }
 
   for(int i = 1; i < voteTable.size(); i++)
   {
     int j = i - 1;
-    // TODO
     // less than 10 matches is probably superfluous matches, so report no object found
-    if(voteTable.at(j).votes < 5 || voteTable.at(i).votes < 5)
+    if(voteTable.at(j).votes < 10 && voteTable.at(i).votes < 10)
     {
-      lat = -1;
-      lng = -1;
-      return;
+      return false;
     }
 
     // Take the top scoring images to perform the triangulation
@@ -210,11 +207,10 @@ void Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     lat = floor(y3 * 10000000000.0) / 10000000000.0;
     if(!std::isinf(lng) && !std::isinf(lat))
     {
-      printf("Calculated: %lf,%lf\n", lat,lng);
-      return;
+      return true;
     }
   }
-
+  return false;
 }
 
 void Locator::locateWithCsv(const char* data_filename)
