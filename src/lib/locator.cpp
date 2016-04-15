@@ -28,6 +28,7 @@ struct vote {
   std::string lat;
   std::string lng;
   std::string heading;
+  std::string pitch;
   int votes;
 };
 bool vote_sorter(vote const &lhs, vote const &rhs) {
@@ -68,7 +69,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   Ptr<FeatureDetector> detector;
   createDetector(detector, "SIFT");
 
-  // Get query keypoints and descriptors
+  // Get query keypoints and descriptors, converting to rootSIFT
   std::vector<KeyPoint> queryKeypoints;
   Mat queryDescriptors;
   getKeypointsAndDescriptors(queryImage, queryKeypoints, queryDescriptors, detector);
@@ -96,6 +97,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     data.lat = line_parts.at(0);
     data.lng = line_parts.at(1);
     data.heading = line_parts.at(2);
+    data.pitch = line_parts.at(3);
     data.votes = 0;
     voteTable.push_back(data);
   }
@@ -122,7 +124,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   for(int i = 0; i < voteTable.size(); i++)
   {
     // Read image
-    Mat svImage = imread(imgs_folder + voteTable.at(i).lat + "," + voteTable.at(i).lng + "," + voteTable.at(i).heading + ".jpg");
+    Mat svImage = imread(imgs_folder + voteTable.at(i).lat + "," + voteTable.at(i).lng + "," + voteTable.at(i).heading + "," + voteTable.at(i).pitch + ".jpg");
     if(svImage.data == NULL)
     {
       printf("Unable to load sv image!\n");

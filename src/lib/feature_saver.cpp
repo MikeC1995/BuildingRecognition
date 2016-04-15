@@ -29,9 +29,11 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
 {
   // separate img_filenames with ':' delimiter
   std::vector<std::string> filename_list = splitString(_img_filenames, ':');
+  // Create SIFT detector
+  Ptr<FeatureDetector> detector;
+  createDetector(detector, "SIFT");
 
-  // read each image and push to images vector
-  std::vector<Mat> images;
+  // For each image, compute descriptors and save to disk
   for(int i = 0; i < filename_list.size(); i++)
   {
     std::string img_folder(_img_folder);
@@ -40,24 +42,14 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
       printf("Can't read image '%s'\n", filename_list.at(i).c_str());
       return;
     }
-    images.push_back(img);
-  }
 
-  // Create SIFT detector
-  Ptr<FeatureDetector> detector;
-  createDetector(detector, "SIFT");
+    // Get keypoints and descriptors, converting to rootSIFT
+    std::vector<KeyPoint> keypoints;
+    Mat descriptors;
+    getKeypointsAndDescriptors(img, keypoints, descriptors, detector);
+    rootSIFT(descriptors);
 
-  // Get keypoints and descriptors
-  std::vector<std::vector<KeyPoint> > keypoints;
-  std::vector<Mat> descriptors;
-  getKeypointsAndDescriptors(images, keypoints, descriptors, detector);
-
-  // Convert query descriptors to RootSIFT and save to disk
-  for(int i = 0; i < descriptors.size(); i++)
-  {
-    rootSIFT(descriptors.at(i));
-
-    // Create saveable matcher with name of format <lat>,<lng>,<heading>
+    // Create saveable matcher with name of format <lat>,<lng>,<heading>,<pitch>
     std::ostringstream matcher_name;
     std::string out_folder(_out_folder);
     size_t lastindex = filename_list.at(i).find_last_of(".");
@@ -68,11 +60,10 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
     Ptr<SaveableFlannBasedMatcher> matcher = new SaveableFlannBasedMatcher(matcher_name_c);
 
     // Build matcher tree
-    matcher->add(descriptors.at(i));
+    matcher->add(descriptors);
     matcher->train();
     std::vector<DMatch> dummy_matches;
-    matcher->match(descriptors.at(i), dummy_matches); // dummy match required for OpenCV to build tree
-
+    matcher->match(descriptors, dummy_matches); // dummy match to itself (required for OpenCV to build tree)
     // Save the matcher to disk
     matcher->store();
   }
