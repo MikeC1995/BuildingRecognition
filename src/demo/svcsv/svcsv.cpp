@@ -74,6 +74,7 @@ int main( int argc, char** argv )
   {
     // Load SV image
     Mat svImage = imread(svFolderPath + "/" + svPaths.at(i));
+    std::cout << svFolderPath + "/" + svPaths.at(i) << std::endl;
     if(svImage.data == NULL)
     {
       DIE("Missing image in folder!");
@@ -105,7 +106,12 @@ int main( int argc, char** argv )
       // if a homography was successfully computed...
       if(homography.cols != 0 && homography.rows != 0)
       {
-        double area = calcProjectedAreaRatio(svImage, homography);
+        std::vector<Point2f> objCorners(4);
+        objCorners[0] = Point(0,0);
+        objCorners[1] = Point( svImage.cols, 0 );
+        objCorners[2] = Point( svImage.cols, svImage.rows );
+        objCorners[3] = Point( 0, svImage.rows );
+        double area = calcProjectedAreaRatio(objCorners, homography);
         // do not count these matches if projected area too small, (likely
         // mapping to single point => erroneous matching)
         if(area < 0.0005)
@@ -115,6 +121,10 @@ int main( int argc, char** argv )
         }
       }
     }
+
+    Mat outImg;
+    drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, outImg);
+    imwrite(ransacFilename, outImg);
 
     // Parse latitude, longitude and heading from image filename
     std::string svPath = svPaths.at(i);

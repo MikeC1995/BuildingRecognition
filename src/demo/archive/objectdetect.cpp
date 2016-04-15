@@ -25,6 +25,19 @@ int main( int argc, char** argv )
   Mat objectDescriptors;
   getKeypointsAndDescriptors(objectImage, objectKeypoints, objectDescriptors, detector);
 
+  int count = 0;
+  for(int i = 0; i < objectKeypoints.size(); i++)
+  {
+    float x = objectKeypoints.at(i).pt.x;
+    float y = objectKeypoints.at(i).pt.y;
+    if(x < 416.0 && y < 413.0 && x > 224.0 && y > 224.0 ) {
+      count++;
+    }
+    //std::cout << x << "," << y << std::endl;
+  }
+  std::cout << "COUNT = " << count << std::endl;
+  std::cout << "FULL = " << objectKeypoints.size() << std::endl;
+
   // Get query keypoints and descriptors
   std::vector<KeyPoint> queryKeypoints;
   Mat queryDescriptors;
@@ -59,6 +72,26 @@ int main( int argc, char** argv )
   // RANSAC filter
   Mat homography;
   ransacFilter(matches, queryKeypoints, objectKeypoints, homography);
+
+  // if a homography was successfully computed...
+  if(homography.cols != 0 && homography.rows != 0)
+  {
+    std::vector<Point2f> objCorners(4);
+    objCorners[0] = Point(0,0);
+    objCorners[1] = Point( queryImage.cols, 0 );
+    objCorners[2] = Point( queryImage.cols, queryImage.rows );
+    objCorners[3] = Point( 0, queryImage.rows );
+    double area = calcProjectedAreaRatio(objCorners, homography);
+    std::cout << area << std::endl;
+    // do not count these matches if projected area too small, (likely
+    // mapping to single point => erroneous matching)
+    if(area < 0.0005)
+    {
+      matches.clear();
+    }
+  }
+  drawProjection(queryImage, homography, objectImage);
+
   Mat ransacMatchesImage;
   drawMatches(queryImage, queryKeypoints, objectImage, objectKeypoints, matches, ransacMatchesImage);
   imwrite("ransac-matches.jpg", ransacMatchesImage);
