@@ -38,3 +38,9 @@ sudo ldconfig
 
 # Install Boost.Python
 sudo apt-get install libboost-all-dev
+
+# Install node
+sudo apt-get install nodejs-legacy
+# Install Naked framework
+pip install Naked
+
