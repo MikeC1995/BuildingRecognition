@@ -73,40 +73,16 @@ app.config['SV_FEATURES_FOLDER'] = 'sv/features/'
 app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 app.config['SV_DATA'] = 'data.csv'
-
-# main route
-# GET       Return hello message
-# POST      include image file in body of request with key 'file'
-#           returns the number of SIFT matches
-@app.route('/', methods=['GET', 'POST'])
-@crossdomain(origin='*')
-def hello_world():
-    if request.method == 'GET':
-        return 'Hello World! Do a POST to match against Wills!'
-    elif request.method == 'POST':
-        # Get the file
-        file = request.files['file']
-        # Build the path to save it to
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], app.config['UPLOAD_FILENAME'])
-
-        if file:
-            # Make the filename safe, remove unsupported chars
-            filename = secure_filename(file.filename)
-            # Save file to upload folder as query.jpg
-            file.save(filepath)
-
-            # Run the recogniser on this query image to get the number of SIFT matches
-            matches = r.query(filepath)
-            print matches
-            return jsonify(success='true',matches=matches);
-        else:
-            return jsonify(success='false');
+app.config['SV_LOCATIONS_FILENAME'] = 'locations.txt'
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
 
+# TODO: just return the filename (easier)
+# Given a location, fetch the SV images for each heading and pitch,
+# compute the features and save to disk, and add filename to filenameFile
 def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
     # Street View api key
     key = 'AIzaSyCP5BKla9RY0aObtlovjVzIBV2XEsfYj48'
@@ -125,11 +101,12 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
             url += ('&pitch={}'.format(pitch))
             url += ('&key={}'.format(key))
 
+            filename = '{},{},{},{}'.format(lat,lng,heading,pitch)
+
             # Get the image, stream it to file
             r = requests.get(url,stream=True)
             if r.status_code == 200:
                 # open new file for writing and reading, binary
-                filename = '{},{},{},{}'.format(lat,lng,heading,pitch)
                 with open(app.config['SV_FOLDER'] + filename + '.jpg', 'wb+') as f:
                     for chunk in r:
                         f.write(chunk)
@@ -138,11 +115,11 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                 # if first pixel is "no image" grey then no SV data at this location
                 # so delete image and return
                 if im.load()[0,0] == (228,227,223):
-                    print "...no imagery"
+                    # print "...no imagery"
                     os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                     return
                 else:
-                    filenameFile.write('{},{},{},{}\n'.format(lat,lng,heading,pitch))
+                    filenameFile.write(filename + '\n')
                     if(i == 0 and pitch == 10):
                         img_filenames += (filename + '.jpg');
                     else:
@@ -151,43 +128,66 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                 print "...error fetching Street View image!"
     f_saver.saveFeatures(app.config['SV_FOLDER'], img_filenames, app.config['SV_FEATURES_FOLDER'])
 
+#TODO: check for missing/invalid params
 @app.route('/sv', methods=['POST'])
 def sv():
     print "*** Fetching and processing Street View Images ***"
-
+    # My C++ library to compute and save image features
+    f_saver = feature_saver.FeatureSaver()
+    # Open file for writing filenames
+    filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
     # read args from POST form data
     args = request.form
-    lat1 = float(args.get('lat1'))
-    lng1 = float(args.get('lng1'))
-    lat2 = float(args.get('lat2'))
-    lng2 = float(args.get('lng2'))
-    density = int(args.get('density'))
     theta = int(args.get('theta'))
 
+    # Fetch SV images from bounding box specified by
+    # southwest=(lat1,lng1) and northwest=(lat2,lng2) corners
+    if args.get('lat1') and args.get('lat2') and args.get('lng1') and args.get('lng2'):
+        lat1 = float(args.get('lat1'))
+        lng1 = float(args.get('lng1'))
+        lat2 = float(args.get('lat2'))
+        lng2 = float(args.get('lng2'))
+        density = int(args.get('density'))
+
+        # iterate over mesh of lat-lngs at specified density,
+        # producing SV images at each point
+        pc_change = 1.0 / (density+1) / (density+1)
+        pc_complete = 0
+        lat_step = (lat1 - lat2)/density
+        lng_step = (lng1 - lng2)/density
+        for i in range(0,density+1,1):
+            for j in range(0,density+1,1):
+                lat = lat2 + j * lat_step
+                lng = lng2 + i * lng_step
+                saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile)
+                pc_complete += pc_change
+                print "{}%".format(pc_complete * 100)
+    # Fetch SV images by coords specified in the uploaded file
+    else:
+        file = request.files['file']
+        if file:
+            file.save(app.config['SV_FOLDER'] + app.config['SV_LOCATIONS_FILENAME'])
+            fileHandle = open(app.config['SV_FOLDER'] + app.config['SV_LOCATIONS_FILENAME'], 'r')
+            line = fileHandle.readline()
+            locations = line.split(':')
+            print len(locations)
+            locations = set(locations)
+            print len(locations)
+            for idx, location in enumerate(locations):
+                print "{}%".format((float(idx)/len(locations))*100)
+                lat = location.split(',')[0]
+                lng = location.split(',')[1]
+                saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile)
+            fileHandle.close()
+        else:
+            print "Missing params"
+            return jsonify(success='false')
+
     # My C++ library to compute and save image features
-    f_saver = feature_saver.FeatureSaver()
-
-     # Open file for writing filenames
-    filenameFile = open(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], 'w')
-
-    # iterate over mesh of lat-lngs at specified density,
-    # producing SV images at each point
-    pc_change = 1.0 / (density+1) / (density+1)
-    pc_complete = 0
-    lat_step = (lat1 - lat2)/density
-    lng_step = (lng1 - lng2)/density
-    for i in range(0,density+1,1):
-        for j in range(0,density+1,1):
-            lat = lat2 + j * lat_step
-            lng = lng2 + i * lng_step
-            saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile)
-            pc_complete += pc_change
-            print "{}%".format(pc_complete * 100)
-
     filenameFile.close()
-
-    # My C++ library to compute and save image features
     f_saver = feature_saver.FeatureSaver()
+    print app.config['SV_FOLDER'] + app.config['SV_FILENAMES']
+    print app.config['SV_FEATURES_FOLDER']
     f_saver.saveBigTree(app.config['SV_FOLDER'] + app.config['SV_FILENAMES'], app.config['SV_FEATURES_FOLDER'])
     return jsonify(success='true')
 
@@ -247,9 +247,10 @@ def locate():
     l = locator.Locator()
     success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
     if success:
-        return jsonify(success=success,lat=l.getLat(),lng=l.getLng())
+        print "{},{}".format(l.getLat(),l.getLng())
+        return jsonify(success=True,lat=l.getLat(),lng=l.getLng())
     else:
-        return jsonify(success=success)
+        return jsonify(success=False)
 
 
 
