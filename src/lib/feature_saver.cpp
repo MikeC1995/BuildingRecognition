@@ -87,7 +87,6 @@ void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folde
       // Load the small matcher and add its descriptors to the big matcher
       std::stringstream matcher_name;
       matcher_name << folder << line;
-      printf("%s\n", matcher_name.str().c_str());
       char* matcher_name_c = new char[matcher_name.str().size() + 1];
       strcpy(matcher_name_c, matcher_name.str().c_str()); // make copy as result of c_str() is valid only for string lifetime
       Ptr<SaveableFlannBasedMatcher> smallMatcher = new SaveableFlannBasedMatcher(matcher_name_c);
