@@ -7,7 +7,6 @@
 #include <fstream>
 #include <cmath>
 #include "locator.hpp"
-#include "saveable_matcher.hpp"
 
 using namespace cv;
 using namespace boost::python;
@@ -21,7 +20,11 @@ double radians(double d) {
   return d * (M_PI / 180.0);
 }
 
-Locator::Locator(){}
+Locator::Locator() {
+  // Load the big matcher
+  bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
+  bigMatcher->load();
+}
 
 // Data struc to store the vote associated with a particular SV image
 struct vote {
@@ -53,10 +56,6 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 // (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
 bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
-  // Load the big matcher
-  Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
-  bigMatcher->load();
-
   // Load the query image
   Mat queryImage = imread(img_filename);
   if(queryImage.data == NULL)

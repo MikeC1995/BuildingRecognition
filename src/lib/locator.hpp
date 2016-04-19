@@ -4,6 +4,7 @@
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/features2d.hpp>
 #include "surf.hpp"
+#include "saveable_matcher.hpp"
 
 #include <boost/python.hpp>
 
@@ -23,6 +24,7 @@ public:
   double getLng();
 
 protected:
+  Ptr<SaveableFlannBasedMatcher> bigMatcher;
   double lat;
   double lng;
 

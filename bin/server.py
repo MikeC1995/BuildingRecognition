@@ -1,14 +1,14 @@
-import cv2
 import os
 import feature_saver
 import data_generator
 import locator
+import time
 
 from flask import Flask
-from flask import request, redirect, url_for, send_from_directory, send_file, jsonify
+from flask import request, send_file, jsonify
 from werkzeug import secure_filename
 
-import requests # for performing our own HTTP requests
+import requests # for performing our own HTTP requests for SV
 import math
 import PIL
 from PIL import Image
@@ -18,7 +18,6 @@ from PIL import Image
 from datetime import timedelta
 from flask import make_response, request, current_app
 from functools import update_wrapper
-
 
 def crossdomain(origin=None, methods=None, headers=None,
                 max_age=21600, attach_to_all=True,
@@ -74,11 +73,6 @@ app.config['SV_FILENAMES'] = 'filenames.txt'
 app.config['SV_QUERY'] = 'query.jpg'
 app.config['SV_DATA'] = 'data.csv'
 app.config['SV_LOCATIONS_FILENAME'] = 'locations.txt'
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'],
-                               filename)
 
 # TODO: just return the filename (easier)
 # Given a location, fetch the SV images for each heading and pitch,
@@ -208,7 +202,6 @@ def analyse():
 
 @app.route('/sv/location', methods=['GET'])
 def locate2():
-    l = locator.Locator()
     l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
     lat = l.getLat()
     lng = l.getLng()
@@ -222,6 +215,7 @@ def locate():
     file = request.files['file']
     # Path to save query image to sv/query.jpg
     filepath = os.path.join(app.config['SV_FOLDER'], app.config['SV_QUERY'])
+
     if file:
         # Ensure filename is safe and save
         filename = secure_filename(file.filename)
@@ -244,16 +238,19 @@ def locate():
         return jsonify(success=False)
 
     # locate the object in the query image and send response
-    l = locator.Locator()
+    t1 = time.time()
     success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
+    t2 = time.time()
     if success:
-        print "{},{}".format(l.getLat(),l.getLng())
-        return jsonify(success=True,lat=l.getLat(),lng=l.getLng())
+        print "{},{},{}".format(l.getLat(), l.getLng(), ((t2-t1)*1000.0))
+        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0))
     else:
         return jsonify(success=False)
 
 
-
 if __name__ == '__main__':
-    app.debug = True
+    app.debug = False
+    print "Loading..."
+    l = locator.Locator()   #pre-load the locator
+    print "Loaded!"
     app.run(host='0.0.0.0')
