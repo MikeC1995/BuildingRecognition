@@ -67,10 +67,16 @@ void SaveableFlannBasedMatcher::store()
 
 void SaveableFlannBasedMatcher::load()
 {
+  FILE* file; // file pointer used to check files exist
+
   // Read the descriptors
   std::vector<Mat> descsVec;
   std::string descriptorsFilename(filename);
   descriptorsFilename += "-descriptors.bin";
+  // Check file exists
+  file = fopen(descriptorsFilename.c_str(), "r");
+  if(file == NULL) { return; }
+  fclose(file);
   readDescriptors(descsVec, descriptorsFilename.c_str());
 
   // Add the descriptors to the matcher
@@ -78,12 +84,20 @@ void SaveableFlannBasedMatcher::load()
 
   std::string treeFilename(filename);
   treeFilename += "-tree.xml.gz";
+  // Check file exists
+  file = fopen(treeFilename.c_str(), "r");
+  if(file == NULL) { return; }
+  fclose(file);
   cv::FileStorage store(treeFilename.c_str(), cv::FileStorage::READ);
   cv::FileNode node = store.root();
   read(node);
 
   std::string indexFilename(filename);
   indexFilename += ".flannindex";
+  // Check file exists
+  file = fopen(indexFilename.c_str(), "r");
+  if(file == NULL) { return; }
+  fclose(file);
   readIndex(indexFilename.c_str());
   store.release();
 }
