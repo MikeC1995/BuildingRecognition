@@ -223,12 +223,12 @@ def locate():
 
         # resize the image (too large causes out-of-memory error)
         img = Image.open(filepath)
-        if img.size[0] < img.size[1]:
-            width = 500
+        if img.size[1] < img.size[0]:
+            width = 800
             wpercent = (width/float(img.size[0]))
             height = int((float(img.size[1]) * float(wpercent)))
         else:
-            height = 500
+            height = 800
             hpercent = (height/float(img.size[1]))
             width = int((float(img.size[0]) * float(hpercent)))
 
@@ -242,8 +242,7 @@ def locate():
     success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
     t2 = time.time()
     if success:
-        print "{},{},{}".format(l.getLat(), l.getLng(), ((t2-t1)*1000.0))
-        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0))
+        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0),matches1=l.getNumMatches1(), matches2=l.getNumMatches2())
     else:
         return jsonify(success=False)
 

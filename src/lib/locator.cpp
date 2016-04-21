@@ -182,11 +182,11 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   {
     int j = i - 1;
     // less than 10 matches is probably superfluous matches, so report no object found
-    if(voteTable.at(j).votes < 10 && voteTable.at(i).votes < 10)
+    /*if(voteTable.at(j).votes < 10 && voteTable.at(i).votes < 10)
     {
       printf("Not enough votes!\n");
       return false;
-    }
+    }*/
 
     // Take the top scoring images to perform the triangulation
     double x1 = stod(voteTable.at(j).lng);
@@ -207,6 +207,8 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
 
     lng = floor(x3 * 10000000000.0) / 10000000000.0;
     lat = floor(y3 * 10000000000.0) / 10000000000.0;
+    numMatches1 = voteTable.at(j).votes;
+    numMatches2 = voteTable.at(i).votes;
     if(!std::isinf(lng) && !std::isinf(lat) && !std::isnan(lat) && !std::isnan(lng))
     {
       return true;
@@ -315,6 +317,14 @@ double Locator::getLng() {
   return lng;
 }
 
+int Locator::getNumMatches1() {
+  return numMatches1;
+}
+
+int Locator::getNumMatches2() {
+  return numMatches2;
+}
+
 // Python Wrapper
 BOOST_PYTHON_MODULE(locator)
 {
@@ -323,5 +333,7 @@ BOOST_PYTHON_MODULE(locator)
     .def("locateWithCsv", &Locator::locateWithCsv)
     .def("getLat", &Locator::getLat)
     .def("getLng", &Locator::getLng)
+    .def("getNumMatches1", &Locator::getNumMatches1)
+    .def("getNumMatches2", &Locator::getNumMatches2)
   ;
 }
