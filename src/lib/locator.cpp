@@ -117,7 +117,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
 
   // Take the top 10 of these highest-matched images
-  if(voteTable.size() > 10) voteTable.resize(10);
+  if(voteTable.size() > 20) voteTable.resize(20);
   // Read each of these top SV images afresh to perform a rigourous matching
   std::string imgs_folder(_imgs_folder);
   for(int i = 0; i < voteTable.size(); i++)
@@ -176,9 +176,38 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   }
   // Sort the vote table again according to these new votes
   std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
-  for(int i = 0; i < voteTable.size(); i++) { std::cout << voteTable.at(i).votes << std::endl; }
 
-  for(int i = 1; i < voteTable.size(); i++)
+  // Keep only the best match from each viewpoint to ensure distinct viewpoints
+  std::vector<int> distinctViewpointIdxs;
+  for(int i = 0; i < voteTable.size(); i++)
+  {
+    int maxIdx = i;
+    for(int j = 0; j < voteTable.size(); j++)
+    {
+      if(i != j)
+      {
+        if( voteTable.at(j).lat.compare(voteTable.at(maxIdx).lat) == 0 &&
+            voteTable.at(j).lng.compare(voteTable.at(maxIdx).lng) == 0 &&
+            voteTable.at(j).votes > voteTable.at(maxIdx).votes)
+        {
+          maxIdx = j;
+        }
+      }
+    }
+    if(std::find(distinctViewpointIdxs.begin(), distinctViewpointIdxs.end(), maxIdx) == distinctViewpointIdxs.end()) {
+      distinctViewpointIdxs.push_back(maxIdx);
+    }
+  }
+  std::vector<vote> distinctVoteTable;
+  for(int j = 0; j < distinctViewpointIdxs.size(); j++)
+  {
+    distinctVoteTable.push_back(voteTable.at(distinctViewpointIdxs.at(j)));
+  }
+
+  // TODO remove
+  std::cout << distinctVoteTable.size() << std::endl;
+
+  for(int i = 1; i < distinctVoteTable.size(); i++)
   {
     int j = i - 1;
     // less than 10 matches is probably superfluous matches, so report no object found
@@ -188,27 +217,29 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
       return false;
     }*/
 
-    // Take the top scoring images to perform the triangulation
-    double x1 = stod(voteTable.at(j).lng);
-    double x2 = stod(voteTable.at(i).lng);
-    double y1 = stod(voteTable.at(j).lat);
-    double y2 = stod(voteTable.at(i).lat);
+    double x1 = stod(distinctVoteTable.at(j).lng);
+    double x2 = stod(distinctVoteTable.at(i).lng);
+    double y1 = stod(distinctVoteTable.at(j).lat);
+    double y2 = stod(distinctVoteTable.at(i).lat);
 
-    double alpha1 = stod(voteTable.at(j).heading);
-    double alpha2 = stod(voteTable.at(i).heading);
+    double alpha1 = stod(distinctVoteTable.at(j).heading);
+    double alpha2 = stod(distinctVoteTable.at(i).heading);
     double beta1 = nfmod(90.0 - alpha1, 360.0);
     double beta2 = nfmod(90.0 - alpha2, 360.0);
-    double a =
-      ((x2-x1)*sin(radians(beta2)) - (y2-y1)*cos(radians(beta2))) /
-      (cos(radians(beta1))*sin(radians(beta2)) - sin(radians(beta1))*cos(radians(beta2)));
 
-    double x3 = x1 + a*cos(radians(beta1));
-    double y3 = y1 + a*sin(radians(beta1));
+    double m1 = tan(radians(90.0 - alpha1));
+    double m2 = tan(radians(90.0 - alpha2));
 
-    lng = floor(x3 * 10000000000.0) / 10000000000.0;
-    lat = floor(y3 * 10000000000.0) / 10000000000.0;
-    numMatches1 = voteTable.at(j).votes;
-    numMatches2 = voteTable.at(i).votes;
+    double x3 = (y1 - y2 + m2*x2 - m1*x1)/(m2 - m1);
+    double y3 = y1 + m1*(((y1 - y2 + m2*x2 - m1*x1)/(m2 - m1))-x1);
+    x3 = floor(x3 * 10000000000.0) / 10000000000.0;
+    y3 = floor(y3 * 10000000000.0) / 10000000000.0;
+
+    lng = x3;
+    lat = y3;
+    numMatches1 = distinctVoteTable.at(j).votes;
+    numMatches2 = distinctVoteTable.at(i).votes;
+
     if(!std::isinf(lng) && !std::isinf(lat) && !std::isnan(lat) && !std::isnan(lng))
     {
       return true;
