@@ -242,7 +242,7 @@ def locate():
     success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
     t2 = time.time()
     if success:
-        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0),matches1=l.getNumMatches1(), matches2=l.getNumMatches2())
+        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0))
     else:
         return jsonify(success=False)
 
