@@ -27,3 +27,5 @@ void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypo
 
 void drawProjection(Mat &input, Mat &homography, Mat &output);
 double calcProjectedAreaRatio(std::vector<Point2f> &objCorners, Mat &homography);
+
+void getFilteredMatches(Mat &image1, std::vector<KeyPoint> &keypoints1, Mat &descriptors1, std::vector<KeyPoint> &keypoints2, Mat &descriptors2, std::vector<DMatch> &matches);

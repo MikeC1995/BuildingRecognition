@@ -26,15 +26,18 @@ Locator::Locator() {
   bigMatcher->load();
 }
 
-// Data struc to store the vote associated with a particular SV image
-struct vote {
+// Data struc to store the vote & other data associated with a particular SV image
+struct Viewpoint {
+  int votes;
   std::string lat;
   std::string lng;
   std::string heading;
   std::string pitch;
-  int votes;
+  Mat image;
+  std::vector<KeyPoint> keypoints;
+  Mat descriptors;
 };
-bool vote_sorter(vote const &lhs, vote const &rhs) {
+bool vote_sorter(Viewpoint const &lhs, Viewpoint const &rhs) {
   return lhs.votes > rhs.votes; // sorts in descending order
 }
 
@@ -80,7 +83,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   std::vector<DMatch> matches;
   loweFilter(knn_matches, matches);
 
-  // Read the filenames_file to build a vote table with each entry set to 0
+  // Read the filenames_file to build a viewpoint table with each entry set to 0
   std::ifstream filenames_file;
   filenames_file.open(filenames_filename);
   if(!filenames_file.is_open())
@@ -88,45 +91,46 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     return false;
   }
   std::string line;
-  std::vector<vote> voteTable;
+  std::vector<Viewpoint> vpTable;
   while(std::getline(filenames_file, line))
   {
     std::vector<std::string> line_parts = splitString(line.c_str(), ',');
-    vote data;
-    data.lat = line_parts.at(0);
-    data.lng = line_parts.at(1);
-    data.heading = line_parts.at(2);
-    data.pitch = line_parts.at(3);
-    data.votes = 0;
-    voteTable.push_back(data);
+    Viewpoint vp;
+    vp.votes = 0;
+    vp.lat = line_parts.at(0);
+    vp.lng = line_parts.at(1);
+    vp.heading = line_parts.at(2);
+    vp.pitch = line_parts.at(3);
+    vpTable.push_back(vp);
   }
 
-  // Populate the voteTable; vote for each image which a match corresponds to
+  // Populate the vpTable; vote for each image which a match corresponds to
   for(int i = 0; i < matches.size(); i++)
   {
     int index = matches.at(i).imgIdx;
-    for(int j = 0; j < voteTable.size(); j++)
+    for(int j = 0; j < vpTable.size(); j++)
     {
       if(index == j) {
-        voteTable.at(j).votes++;
+        vpTable.at(j).votes++;
       }
     }
   }
 
-  // Sort the voteTable with the highest-matched images at the top
-  std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
+  // Sort the vpTable with the highest-matched images at the top
+  std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
 
-  // Take the top 10 of these highest-matched images
-  if(voteTable.size() > 20) voteTable.resize(20);
+  // Take the top 20 of these highest-matched images
+  if(vpTable.size() > 20) vpTable.resize(20);
+
   // Read each of these top SV images afresh to perform a rigourous matching
   std::string imgs_folder(_imgs_folder);
-  for(int i = 0; i < voteTable.size(); i++)
+  for(int i = 0; i < vpTable.size(); i++)
   {
     // Read image
-    Mat svImage = imread(imgs_folder + voteTable.at(i).lat + "," + voteTable.at(i).lng + "," + voteTable.at(i).heading + "," + voteTable.at(i).pitch + ".jpg");
+    Mat svImage = imread(imgs_folder + vpTable.at(i).lat + "," + vpTable.at(i).lng + "," + vpTable.at(i).heading + "," + vpTable.at(i).pitch + ".jpg");
     if(svImage.data == NULL)
     {
-      printf("Unable to load sv image!\n");
+      printf("Unable to load SV image!\n");
       return false;
     }
     // Get query keypoints and descriptors
@@ -134,96 +138,109 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     Mat svDescriptors;
     getKeypointsAndDescriptors(svImage, svKeypoints, svDescriptors, detector);
     rootSIFT(svDescriptors);
+    vpTable.at(i).image = svImage;
+    vpTable.at(i).keypoints = svKeypoints;
+    vpTable.at(i).descriptors = svDescriptors;
 
-    // Match as standard
-    Ptr<FlannBasedMatcher> matcher = new FlannBasedMatcher();
+    // Match the SV image against the query, applying lowe + geometric filters
     matches.clear();
-    knn_matches.clear();
-    matcher->knnMatch(svDescriptors, queryDescriptors, knn_matches, 2);
-    loweFilter(knn_matches, matches);
+    getFilteredMatches(svImage, svKeypoints, svDescriptors, queryKeypoints, queryDescriptors, matches);
 
-    // Perform geometric verification
-    if(matches.size() > 4) {
-      // RANSAC filter
-      Mat homography;
-      ransacFilter(matches, svKeypoints, queryKeypoints, homography);
-
-      // if a homography was successfully computed...
-      if(homography.cols != 0 && homography.rows != 0)
-      {
-        std::vector<Point2f> objCorners(4);
-        objCorners[0] = Point(0,0);
-        objCorners[1] = Point( svImage.cols, 0 );
-        objCorners[2] = Point( svImage.cols, svImage.rows );
-        objCorners[3] = Point( 0, svImage.rows );
-        double area = calcProjectedAreaRatio(objCorners, homography);
-        // do not count these matches if projected area too small, (likely
-        // mapping to single point => erroneous matching)
-        if(area < 0.0005)
-        {
-          matches.clear();
-        }
-      }
-    }
     // update the votes for this image to be the number of "rigourous" matches
-    voteTable.at(i).votes = matches.size();
+    vpTable.at(i).votes = matches.size();
 
+    // Write match images to disk
     Mat img_matches;
     std::stringstream ss;
     ss << "matches" << i << ".jpg";
     drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
     imwrite(ss.str(), img_matches);
   }
-  // Sort the vote table again according to these new votes
-  std::sort(voteTable.begin(), voteTable.end(), &vote_sorter);
 
-  // Keep only the best match from each viewpoint to ensure distinct viewpoints
-  std::vector<int> distinctViewpointIdxs;
-  for(int i = 0; i < voteTable.size(); i++)
+  // Sort the vpTable again according to these new votes
+  std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
+
+  // Keep only the best viewpoint from each lat-lng to ensure distinct views
+  std::vector<int> distinctViewIdxs;
+  for(int i = 0; i < vpTable.size(); i++)
   {
     int maxIdx = i;
-    for(int j = 0; j < voteTable.size(); j++)
+    for(int j = 0; j < vpTable.size(); j++)
     {
       if(i != j)
       {
-        if( voteTable.at(j).lat.compare(voteTable.at(maxIdx).lat) == 0 &&
-            voteTable.at(j).lng.compare(voteTable.at(maxIdx).lng) == 0 &&
-            voteTable.at(j).votes > voteTable.at(maxIdx).votes)
+        if( vpTable.at(j).lat.compare(vpTable.at(maxIdx).lat) == 0 &&
+            vpTable.at(j).lng.compare(vpTable.at(maxIdx).lng) == 0 &&
+            vpTable.at(j).votes > vpTable.at(maxIdx).votes )
         {
           maxIdx = j;
         }
       }
     }
-    if(std::find(distinctViewpointIdxs.begin(), distinctViewpointIdxs.end(), maxIdx) == distinctViewpointIdxs.end()) {
-      distinctViewpointIdxs.push_back(maxIdx);
+    if(std::find(distinctViewIdxs.begin(), distinctViewIdxs.end(), maxIdx) == distinctViewIdxs.end()) {
+      distinctViewIdxs.push_back(maxIdx);
     }
   }
-  std::vector<vote> distinctVoteTable;
-  for(int j = 0; j < distinctViewpointIdxs.size(); j++)
+  // Keep the distinct views which have at least 9 matches with the
+  // query image (otherwise likely to be superfluous)
+  std::vector<Viewpoint> distinctVpTable;
+  for(int j = 0; j < distinctViewIdxs.size(); j++)
   {
-    distinctVoteTable.push_back(voteTable.at(distinctViewpointIdxs.at(j)));
+    if(vpTable.at(distinctViewIdxs.at(j)).votes >= 9)
+    {
+      distinctVpTable.push_back(vpTable.at(distinctViewIdxs.at(j)));
+    }
   }
 
-  // TODO remove
-  std::cout << distinctVoteTable.size() << std::endl;
-
-  for(int i = 1; i < distinctVoteTable.size(); i++)
+  // If there are no distinct views with sufficient matches, we fail to locate the query
+  if(distinctVpTable.size() == 0)
   {
-    int j = i - 1;
-    // less than 10 matches is probably superfluous matches, so report no object found
-    /*if(voteTable.at(j).votes < 10 && voteTable.at(i).votes < 10)
+    return false;
+  }
+
+  // If there's only one distinct viewpoint, use the viewpoint location as the prediction
+  if(distinctVpTable.size() == 1)
+  {
+    lat = stod(distinctVpTable.at(0).lat);
+    lng = stod(distinctVpTable.at(0).lng);
+    return true;
+  }
+
+  // Match each SV image against the others
+  long total_num_matches = 0;
+  std::vector<Viewpoint> v1s;
+  std::vector<Viewpoint> v2s;
+  std::vector<long> num_matches;
+  for(int i = 0; i < distinctVpTable.size(); i++)
+  {
+    for(int j = i + 1; j < distinctVpTable.size(); j++)
     {
-      printf("Not enough votes!\n");
-      return false;
-    }*/
+      matches.clear();
+      Viewpoint v1 = distinctVpTable.at(i);
+      Viewpoint v2 = distinctVpTable.at(j);
+      getFilteredMatches(v1.image, v1.keypoints, v1.descriptors, v2.keypoints, v2.descriptors, matches);
+      v1s.push_back(v1);
+      v2s.push_back(v2);
+      num_matches.push_back(matches.size());
+      total_num_matches += matches.size();
+    }
+  }
 
-    double x1 = stod(distinctVoteTable.at(j).lng);
-    double x2 = stod(distinctVoteTable.at(i).lng);
-    double y1 = stod(distinctVoteTable.at(j).lat);
-    double y2 = stod(distinctVoteTable.at(i).lat);
+  // Compute the intersections of each pair
+  std::vector<double> lats;
+  std::vector<double> lngs;
+  std::vector<double> weights;
+  double mean_lat = 0;
+  double mean_lng = 0;
+  for(int i = 0; i < v1s.size(); i++)
+  {
+    double x1 = stod(v1s.at(i).lng);
+    double x2 = stod(v2s.at(i).lng);
+    double y1 = stod(v1s.at(i).lat);
+    double y2 = stod(v2s.at(i).lat);
 
-    double alpha1 = stod(distinctVoteTable.at(j).heading);
-    double alpha2 = stod(distinctVoteTable.at(i).heading);
+    double alpha1 = stod(v1s.at(i).heading);
+    double alpha2 = stod(v2s.at(i).heading);
     double beta1 = nfmod(90.0 - alpha1, 360.0);
     double beta2 = nfmod(90.0 - alpha2, 360.0);
 
@@ -235,17 +252,80 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     x3 = floor(x3 * 10000000000.0) / 10000000000.0;
     y3 = floor(y3 * 10000000000.0) / 10000000000.0;
 
-    lng = x3;
-    lat = y3;
-    numMatches1 = distinctVoteTable.at(j).votes;
-    numMatches2 = distinctVoteTable.at(i).votes;
-
-    if(!std::isinf(lng) && !std::isinf(lat) && !std::isnan(lat) && !std::isnan(lng))
+    if(!std::isinf(x3) && !std::isinf(y3) && !std::isnan(x3) && !std::isnan(y3))
     {
-      return true;
+      mean_lng += x3;
+      mean_lat += y3;
+      lngs.push_back(x3);
+      lats.push_back(y3);
+      weights.push_back((double)(num_matches.at(i)));
+      printf("(%lf %lf)\n", y3, x3);
     }
   }
-  return false;
+
+  // If there are no instersections, they were all parallel
+  // Therefore use the best viewpoint location as the prediction
+  if(lats.size() == 0)
+  {
+    lat = stod(distinctVpTable.at(0).lat);
+    lng = stod(distinctVpTable.at(0).lng);
+    return true;
+  }
+
+  // Compute means
+  mean_lat /= ((double)(lats.size()));
+  mean_lng /= ((double)(lngs.size()));
+
+  // If there's only one intersection, use this as the prediction
+  if(lats.size() == 1)
+  {
+    lat = mean_lat;
+    lng = mean_lng;
+    return true;
+  }
+
+  // Compute the standard deviations of the intersection coords
+  double stddev_lat = 0;
+  double stddev_lng = 0;
+  for(int i = 0; i < weights.size(); i++)
+  {
+    stddev_lat += ((lats.at(i) - mean_lat)*(lats.at(i) - mean_lat));
+    stddev_lat += ((lngs.at(i) - mean_lng)*(lngs.at(i) - mean_lng));
+  }
+  stddev_lat = sqrt(stddev_lat/(double)(lats.size() - 1));
+  stddev_lng = sqrt(stddev_lng/(double)(lngs.size() - 1));
+
+  // Remove any outlier intersections which are outside +/- 2 std. devs from mean
+  for(int i = 0; i < weights.size(); i++)
+  {
+    if(!(lats.at(i) > mean_lat - 2 * stddev_lat && lats.at(i) < mean_lat + 2 * stddev_lat &&
+       lngs.at(i) > mean_lng - 2 * stddev_lng && lngs.at(i) < mean_lng + 2 * stddev_lng))
+    {
+      weights.erase(weights.begin() + i);
+      lats.erase(lats.begin() + i);
+      lngs.erase(lngs.begin() + i);
+    }
+  }
+
+  // Take the weighted average of the intersections as the prediction.
+  // (Weight each intersection according to the number of matches
+  // between its two viewpoints)
+  double sum = 0;
+  lat = 0;
+  lng = 0;
+  for(int i = 0; i < weights.size(); i++)
+  {
+    sum += weights.at(i);
+  }
+  for(int i = 0; i < weights.size(); i++)
+  {
+    weights.at(i) /= sum;
+    lat += (weights.at(i) * lats.at(i));
+    lng += (weights.at(i) * lngs.at(i));
+    printf("%lf | (%lf, %lf)\n", weights.at(i), lats.at(i), lngs.at(i));
+  }
+  printf("%lf, %lf\n", lat, lng);
+  return true;
 }
 
 void Locator::locateWithCsv(const char* data_filename)
@@ -348,14 +428,6 @@ double Locator::getLng() {
   return lng;
 }
 
-int Locator::getNumMatches1() {
-  return numMatches1;
-}
-
-int Locator::getNumMatches2() {
-  return numMatches2;
-}
-
 // Python Wrapper
 BOOST_PYTHON_MODULE(locator)
 {
@@ -364,7 +436,5 @@ BOOST_PYTHON_MODULE(locator)
     .def("locateWithCsv", &Locator::locateWithCsv)
     .def("getLat", &Locator::getLat)
     .def("getLng", &Locator::getLng)
-    .def("getNumMatches1", &Locator::getNumMatches1)
-    .def("getNumMatches2", &Locator::getNumMatches2)
   ;
 }

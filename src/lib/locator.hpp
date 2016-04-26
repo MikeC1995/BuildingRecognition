@@ -22,14 +22,9 @@ public:
 
   double getLat();
   double getLng();
-  int getNumMatches1();
-  int getNumMatches2();
 
 protected:
   Ptr<SaveableFlannBasedMatcher> bigMatcher;
   double lat;
   double lng;
-  int numMatches1;
-  int numMatches2;
-
 };

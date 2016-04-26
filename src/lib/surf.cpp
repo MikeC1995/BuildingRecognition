@@ -302,3 +302,38 @@ double calcProjectedAreaRatio(std::vector<Point2f> &objCorners, Mat &homography)
 
   return contourArea(scnCorners)/contourArea(objCorners);
 }
+
+
+void getFilteredMatches(Mat &image1, std::vector<KeyPoint> &keypoints1, Mat &descriptors1, std::vector<KeyPoint> &keypoints2, Mat &descriptors2, std::vector<DMatch> &matches)
+{
+  // Match query and viewpoint
+  Ptr<FlannBasedMatcher> matcher = new FlannBasedMatcher();
+  std::vector<std::vector<DMatch> > knn_matches;
+  matches.clear();
+  matcher->knnMatch(descriptors1, descriptors2, knn_matches, 2);
+  loweFilter(knn_matches, matches);
+
+  // Perform geometric verification
+  if(matches.size() > 4) {
+    // RANSAC filter
+    Mat homography;
+    ransacFilter(matches, keypoints1, keypoints2, homography);
+
+    // if a homography was successfully computed...
+    if(homography.cols != 0 && homography.rows != 0)
+    {
+      std::vector<Point2f> objCorners(4);
+      objCorners[0] = Point(0,0);
+      objCorners[1] = Point( image1.cols, 0 );
+      objCorners[2] = Point( image1.cols, image1.rows );
+      objCorners[3] = Point( 0, image1.rows );
+      double area = calcProjectedAreaRatio(objCorners, homography);
+      // do not count these matches if projected area too small, (likely
+      // mapping to single point => erroneous matching)
+      if(area < 0.0005)
+      {
+        matches.clear();
+      }
+    }
+  }
+}
