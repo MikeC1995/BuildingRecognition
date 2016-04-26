@@ -6,10 +6,14 @@
 #include <cstring>
 #include <fstream>
 #include <cmath>
+#include <chrono>
+#include <omp.h>
 #include "locator.hpp"
 
 using namespace cv;
 using namespace boost::python;
+
+#define PROFILE_LOCATE 1
 
 double nfmod(double a, double b)
 {
@@ -59,6 +63,7 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 // (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
 bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
+  std::cout << omp_get_max_threads() << std::endl;
   // Load the query image
   Mat queryImage = imread(img_filename);
   if(queryImage.data == NULL)
@@ -78,11 +83,18 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   rootSIFT(queryDescriptors);
 
   // Match query image against all SV images using bigmatcher
+#ifdef PROFILE_LOCATE
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+#endif
   std::vector<std::vector<DMatch> > knn_matches;
   bigMatcher->knnMatch(queryDescriptors, knn_matches, 2);
   std::vector<DMatch> matches;
   loweFilter(knn_matches, matches);
-
+#ifdef PROFILE_LOCATE
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+  std::cout << duration << ",";
+#endif
   // Read the filenames_file to build a viewpoint table with each entry set to 0
   std::ifstream filenames_file;
   filenames_file.open(filenames_filename);
@@ -122,8 +134,16 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   // Take the top 20 of these highest-matched images
   if(vpTable.size() > 20) vpTable.resize(20);
 
+#ifdef PROFILE_LOCATE
+  // Time prep vp table
+  t2 = std::chrono::high_resolution_clock::now();
+  duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+  std::cout << duration << ",";
+#endif
+
   // Read each of these top SV images afresh to perform a rigourous matching
   std::string imgs_folder(_imgs_folder);
+  #pragma omp parallel for
   for(int i = 0; i < vpTable.size(); i++)
   {
     // Read image
@@ -131,7 +151,8 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     if(svImage.data == NULL)
     {
       printf("Unable to load SV image!\n");
-      return false;
+      // TODO: cant break out of loop if in parallel...
+      //return false;
     }
     // Get query keypoints and descriptors
     std::vector<KeyPoint> svKeypoints;
@@ -150,15 +171,22 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     vpTable.at(i).votes = matches.size();
 
     // Write match images to disk
-    Mat img_matches;
-    std::stringstream ss;
-    ss << "matches" << i << ".jpg";
-    drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
-    imwrite(ss.str(), img_matches);
+    //Mat img_matches;
+    //std::stringstream ss;
+    //ss << "matches" << i << ".jpg";
+    //drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
+    //imwrite(ss.str(), img_matches);
   }
 
   // Sort the vpTable again according to these new votes
   std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
+
+#ifdef PROFILE_LOCATE
+  // Time prep rigourous match
+  t2 = std::chrono::high_resolution_clock::now();
+  duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+  std::cout << duration << ",";
+#endif
 
   // Keep only the best viewpoint from each lat-lng to ensure distinct views
   std::vector<int> distinctViewIdxs;
@@ -207,12 +235,12 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   }
 
   // Match each SV image against the others
-  long total_num_matches = 0;
   std::vector<Viewpoint> v1s;
   std::vector<Viewpoint> v2s;
   std::vector<long> num_matches;
   for(int i = 0; i < distinctVpTable.size(); i++)
   {
+    #pragma omp parallel for
     for(int j = i + 1; j < distinctVpTable.size(); j++)
     {
       matches.clear();
@@ -222,7 +250,6 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
       v1s.push_back(v1);
       v2s.push_back(v2);
       num_matches.push_back(matches.size());
-      total_num_matches += matches.size();
     }
   }
 
@@ -259,7 +286,6 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
       lngs.push_back(x3);
       lats.push_back(y3);
       weights.push_back((double)(num_matches.at(i)));
-      printf("(%lf %lf)\n", y3, x3);
     }
   }
 
@@ -322,9 +348,14 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
     weights.at(i) /= sum;
     lat += (weights.at(i) * lats.at(i));
     lng += (weights.at(i) * lngs.at(i));
-    printf("%lf | (%lf, %lf)\n", weights.at(i), lats.at(i), lngs.at(i));
   }
-  printf("%lf, %lf\n", lat, lng);
+
+  #ifdef PROFILE_LOCATE
+    // Time prep vp table
+    t2 = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+    std::cout << duration << std::endl;
+  #endif
   return true;
 }
 

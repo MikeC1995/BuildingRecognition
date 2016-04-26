@@ -6,7 +6,7 @@ PYTHON_VERSION = 2.7
 PYTHON_INCLUDE = /usr/include/python$(PYTHON_VERSION)
 
 # compiler flags:
-CPPFLAGS = -ggdb -std=c++11
+CPPFLAGS = -std=c++11 -fopenmp
 CPPFLAGS += $(shell pkg-config --cflags opencv)
 
 # OpenCV libraries to link:
