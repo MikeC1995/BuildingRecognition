@@ -13,6 +13,11 @@ import math
 import PIL
 from PIL import Image
 
+from pymongo import MongoClient
+import json
+from bson import json_util
+from bson.objectid import ObjectId
+
 ###### ACCESS CONTROL ##########
 
 from datetime import timedelta
@@ -209,6 +214,49 @@ def locate2():
     return jsonify(lat=lat,lng=lng)
 
 ##################### PRODUCTION ROUTES ##########################
+@app.route('/place', methods=['POST'])
+def add_place():
+    args = request.form
+    name = args.get('name')
+    address = args.get('address')
+    description = args.get('description')
+    try:
+        location = json.loads(args.get('location'))
+    except ValueError:
+        return jsonify(success=False,message='Malformed location parameter! Must be a valid JSON with "lat" and "lng" properties.')
+
+    #TODO: check for places too close by
+    if name and address and 'lat' in location and 'lng' in location and description:
+        try:
+            place = {
+                'name': name,
+                'address': address,
+                'location': {
+                    'lat': location['lat'],
+                    'lng': location['lng']
+                },
+                "description": description
+            }
+            db.places.insert_one(place)
+        except:
+            return jsonify(success="False", message="Error adding to database!")
+        return jsonify(success=True,place=json_util.dumps(place))
+    else:
+        return jsonify(success=False,message="Missing parameters!")
+
+@app.route('/place', methods=['GET'])
+def get_place():
+    _id = request.args.get('_id')
+    if _id:
+        try:
+            place = db.places.find({'_id': ObjectId(_id)})
+        except:
+            return jsonify(success="False", message="Error fetching from database!")
+        return jsonify(success=True,place=json_util.dumps(place))
+    else:
+        return jsonify(success=False,message="Missing parameters!")
+
+
 @app.route('/locate', methods=['POST'])
 def locate():
     # Get the file
@@ -252,4 +300,6 @@ if __name__ == '__main__':
     print "Loading..."
     l = locator.Locator()   #pre-load the locator
     print "Loaded!"
+    db = MongoClient().identisnap
+    print "Connected!"
     app.run(host='0.0.0.0')
