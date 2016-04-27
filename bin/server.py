@@ -287,7 +287,7 @@ def locate():
         lng=l.getLng()
         print "Looking for places near {},{}".format(lat, lng)
         try:
-            place = db.places.find({
+            places = db.places.find({
                 'loc' : {
                     '$near': {
                         '$geometry': {
@@ -298,7 +298,7 @@ def locate():
                     }
                 }
             })
-            return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),place=json_util.dumps(place))
+            return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),places=json_util.dumps(places))
         except:
             return jsonify(success=False,message="Error fetching from database!")
     else:
