@@ -63,7 +63,6 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 // (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
 bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
-  std::cout << omp_get_max_threads() << std::endl;
   // Load the query image
   Mat queryImage = imread(img_filename);
   if(queryImage.data == NULL)
@@ -143,39 +142,49 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
 
   // Read each of these top SV images afresh to perform a rigourous matching
   std::string imgs_folder(_imgs_folder);
+  bool abort = false; // flag for omp safe loop breakout if sv image cant be read
   #pragma omp parallel for
   for(int i = 0; i < vpTable.size(); i++)
   {
-    // Read image
-    Mat svImage = imread(imgs_folder + vpTable.at(i).lat + "," + vpTable.at(i).lng + "," + vpTable.at(i).heading + "," + vpTable.at(i).pitch + ".jpg");
-    if(svImage.data == NULL)
-    {
-      printf("Unable to load SV image!\n");
-      // TODO: cant break out of loop if in parallel...
-      //return false;
+    #pragma omp flush (abort)
+    if (!abort) {
+      // Read image
+      Mat svImage = imread(imgs_folder + vpTable.at(i).lat + "," + vpTable.at(i).lng + "," + vpTable.at(i).heading + "," + vpTable.at(i).pitch + ".jpg");
+      if(svImage.data == NULL)
+      {
+        printf("Unable to load SV image!\n");
+        // set omp flag and sync across threads
+        abort = true;
+        #pragma omp flush (abort)
+      }
+      // Get query keypoints and descriptors
+      std::vector<KeyPoint> svKeypoints;
+      Mat svDescriptors;
+      getKeypointsAndDescriptors(svImage, svKeypoints, svDescriptors, detector);
+      rootSIFT(svDescriptors);
+      vpTable.at(i).image = svImage;
+      vpTable.at(i).keypoints = svKeypoints;
+      vpTable.at(i).descriptors = svDescriptors;
+
+      // Match the SV image against the query, applying lowe + geometric filters
+      matches.clear();
+      getFilteredMatches(svImage, svKeypoints, svDescriptors, queryKeypoints, queryDescriptors, matches);
+
+      // update the votes for this image to be the number of "rigourous" matches
+      vpTable.at(i).votes = matches.size();
+
+      // Write match images to disk
+      //Mat img_matches;
+      //std::stringstream ss;
+      //ss << "matches" << i << ".jpg";
+      //drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
+      //imwrite(ss.str(), img_matches);
     }
-    // Get query keypoints and descriptors
-    std::vector<KeyPoint> svKeypoints;
-    Mat svDescriptors;
-    getKeypointsAndDescriptors(svImage, svKeypoints, svDescriptors, detector);
-    rootSIFT(svDescriptors);
-    vpTable.at(i).image = svImage;
-    vpTable.at(i).keypoints = svKeypoints;
-    vpTable.at(i).descriptors = svDescriptors;
-
-    // Match the SV image against the query, applying lowe + geometric filters
-    matches.clear();
-    getFilteredMatches(svImage, svKeypoints, svDescriptors, queryKeypoints, queryDescriptors, matches);
-
-    // update the votes for this image to be the number of "rigourous" matches
-    vpTable.at(i).votes = matches.size();
-
-    // Write match images to disk
-    //Mat img_matches;
-    //std::stringstream ss;
-    //ss << "matches" << i << ".jpg";
-    //drawMatches(svImage, svKeypoints, queryImage, queryKeypoints, matches, img_matches);
-    //imwrite(ss.str(), img_matches);
+  }
+  // An SV image couldn't be read, so we cannot locate
+  if(abort)
+  {
+    return false;
   }
 
   // Sort the vpTable again according to these new votes
