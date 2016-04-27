@@ -2,7 +2,6 @@ import os
 import feature_saver
 import data_generator
 import locator
-import time
 
 from flask import Flask
 from flask import request, send_file, jsonify
@@ -231,10 +230,7 @@ def add_place():
             place = {
                 'name': name,
                 'address': address,
-                'location': {
-                    'lat': location['lat'],
-                    'lng': location['lng']
-                },
+                'loc': [ location['lng'], location['lat'] ],
                 "description": description
             }
             db.places.insert_one(place)
@@ -286,13 +282,27 @@ def locate():
         return jsonify(success=False)
 
     # locate the object in the query image and send response
-    t1 = time.time()
-    success = l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES'])
-    t2 = time.time()
-    if success:
-        return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),time=((t2-t1)*1000.0))
+    if l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']):
+        lat=l.getLat()
+        lng=l.getLng()
+        print "Looking for places near {},{}".format(lat, lng)
+        try:
+            place = db.places.find({
+                'loc' : {
+                    '$near': {
+                        '$geometry': {
+                            'type':"Point",
+                            'coordinates':[lng, lat]
+                        },
+                    '$maxDistance': 30
+                    }
+                }
+            })
+            return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),place=json_util.dumps(place))
+        except:
+            return jsonify(success=False,message="Error fetching from database!")
     else:
-        return jsonify(success=False)
+        return jsonify(success=False,message="Error fetching from database!")
 
 
 if __name__ == '__main__':
