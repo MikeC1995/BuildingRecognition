@@ -5,6 +5,7 @@ import locator
 
 from flask import Flask
 from flask import request, send_file, jsonify
+from flask.ext.cors import CORS, cross_origin
 from werkzeug import secure_filename
 
 import requests # for performing our own HTTP requests for SV
@@ -68,6 +69,7 @@ def crossdomain(origin=None, methods=None, headers=None,
 
 # Create the flask REST server application
 app = Flask(__name__)
+CORS(app)
 
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.config['UPLOAD_FILENAME'] = 'query.jpg'
@@ -213,19 +215,17 @@ def locate2():
     return jsonify(lat=lat,lng=lng)
 
 ##################### PRODUCTION ROUTES ##########################
-@app.route('/place', methods=['POST'])
+@app.route('/place', methods=['POST', 'OPTIONS'])
+@cross_origin(origin='*')
 def add_place():
-    args = request.form
-    name = args.get('name')
-    address = args.get('address')
-    description = args.get('description')
-    try:
-        location = json.loads(args.get('location'))
-    except ValueError:
-        return jsonify(success=False,message='Malformed location parameter! Must be a valid JSON with "lat" and "lng" properties.')
+    args = request.get_json()
+    name = args['name']
+    address = args['address']
+    description = args['description']
+    location = args['location']
 
     #TODO: check for places too close by
-    if name and address and 'lat' in location and 'lng' in location and description:
+    if name and address and location and 'lat' in location and 'lng' in location and description:
         try:
             place = {
                 'name': name,
