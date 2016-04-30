@@ -1,14 +1,14 @@
 /////////////////////////////////////////////////////////////////////////////
 //
 // Individual Project
-// Detect and display features in image using SURF
+// Detect and display features in image
 //
 /////////////////////////////////////////////////////////////////////////////
 
 // header inclusion
 #include <stdio.h>
 #include <string>
-#include "surf.hpp"
+#include "engine.hpp"
 
 using namespace cv;
 

@@ -17,8 +17,8 @@ class Locator
 public:
   Locator();
 
-  bool locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename);
-  void locateWithCsv(const char* data_filename);
+  bool locate(const char* img_filename, const char* _imgs_folder, const char* filenames_filename);
+  void locateCsv(const char* data_filename);
 
   double getLat();
   double getLng();

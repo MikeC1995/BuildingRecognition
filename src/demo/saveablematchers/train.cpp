@@ -1,9 +1,14 @@
+/*
+** Read <number> training images from <folder-name>, compute <feature-type>
+** features and store the constructed matcher <matcher-name> to disk
+*/
+
 // header inclusion
 #include <stdio.h>
 #include <string>
 #include <iostream>
 #include <iomanip>
-#include "/root/server/src/lib/surf.hpp"
+#include "/root/server/src/lib/engine.hpp"
 #include "/root/server/src/lib/saveable_matcher.hpp"
 
 using namespace cv;
@@ -12,10 +17,6 @@ void DIE(const char* message)
 {
   printf("%s\n", message);
   exit(1);
-}
-
-void readTrainingImages(std::string const &folderpath, std::string const &extension, int number, std::vector<Mat> &images)
-{
 }
 
 int main( int argc, char** argv )
@@ -72,8 +73,6 @@ int main( int argc, char** argv )
   matcher->train();
 
   // Perform a match to actually contruct the matcher
-  // See http://stackoverflow.com/questions/9248012/saving-and-loading-flannbasedmatcher?rq=1
-  // ...see if you can get around this using the derived class workaround
   std::vector<DMatch> matches;
   matcher->match(trainingDescriptors.at(0), matches);
 

@@ -11,7 +11,7 @@ CPPFLAGS = -ggdb -std=c++11
 CPPFLAGS += $(shell pkg-config --cflags opencv)
 
 # OpenCV libraries to link:
-LIBS = /root/server/src/lib/surf.cpp
+LIBS = /root/server/src/lib/engine.cpp
 LIBS += $(shell pkg-config --libs opencv)
 
 % : %.cpp

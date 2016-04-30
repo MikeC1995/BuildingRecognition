@@ -1,6 +1,10 @@
-/* A program to perform RootSIFT RANSAC matching between a query image and each
-** image in a specified folder. The number of matches and the visualisations
-** are output. */
+/*
+** Program which produces a CSV file detailing the number of matches a query
+** image makes with each image in a specified folder.
+**
+** Folder images given in <folder>/filenames.txt
+** Query image given in <folder>/query.jpg
+*/
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
@@ -11,7 +15,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "/root/server/src/lib/surf.hpp"
+#include "/root/server/src/lib/engine.hpp"
 
 using namespace cv;
 
@@ -29,7 +33,7 @@ int main( int argc, char** argv )
   }
   std::string svFolderPath(argv[1]);
 
-  // open the file containing the list of SV filenames
+  // Open the file containing the list of SV filenames
   std::ifstream filenameFile;
   filenameFile.open(svFolderPath + "/filenames.txt");
 
@@ -37,7 +41,7 @@ int main( int argc, char** argv )
   Ptr<FeatureDetector> detector;
   createDetector(detector, "SIFT");
 
-  // Assuming query image is saved to sv/query.jpg
+  // Query image is saved to sv/query.jpg
   printf("Reading query image...\n");
   Mat queryImage = imread(svFolderPath + "/query.jpg");
   if(queryImage.data == NULL)
@@ -58,8 +62,6 @@ int main( int argc, char** argv )
   std::vector<KeyPoint> queryKeypoints;
   Mat queryDescriptors;
   getKeypointsAndDescriptors(queryImage, queryKeypoints, queryDescriptors, detector);
-
-  // Convert query keypoints to RootSIFT
   rootSIFT(queryDescriptors);
 
   // Open a csv file to write results to
@@ -83,7 +85,6 @@ int main( int argc, char** argv )
     std::vector<KeyPoint> svKeypoints;
     Mat svDescriptors;
     getKeypointsAndDescriptors(svImage, svKeypoints, svDescriptors, detector);
-    // Convert SV keypoints to RootSIFT
     rootSIFT(svDescriptors);
 
     // filename for output visualisation

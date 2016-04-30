@@ -61,7 +61,7 @@ std::vector<std::string> splitString(const char* str, char delimiter)
 // Locate the object in the image given by img_filename by matching against the stored bigmatcher,
 // taking the top scoring images, and performing a rigourous matching against these.
 // (_imgs_folder = the folder containing the SV images, filenames_filename = the location of the file describing the SV filenames)
-bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
+bool Locator::locate(const char* img_filename, const char* _imgs_folder, const char* filenames_filename)
 {
   // Load the query image
   Mat queryImage = imread(img_filename);
@@ -130,8 +130,8 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   // Sort the vpTable with the highest-matched images at the top
   std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
 
-  // Take the top 20 of these highest-matched images
-  if(vpTable.size() > 20) vpTable.resize(20);
+  // Take the top 30 of these highest-matched images
+  if(vpTable.size() > 30) vpTable.resize(30);
 
 #ifdef PROFILE_LOCATE
   // Time prep vp table
@@ -368,7 +368,7 @@ bool Locator::locateWithBigTree(const char* img_filename, const char* _imgs_fold
   return true;
 }
 
-void Locator::locateWithCsv(const char* data_filename)
+void Locator::locateCsv(const char* data_filename)
 {
   std::ifstream file(data_filename);
 
@@ -472,8 +472,7 @@ double Locator::getLng() {
 BOOST_PYTHON_MODULE(locator)
 {
   class_<Locator>("Locator", init<>())
-    .def("locateWithBigTree", &Locator::locateWithBigTree)
-    .def("locateWithCsv", &Locator::locateWithCsv)
+    .def("locate", &Locator::locate)
     .def("getLat", &Locator::getLat)
     .def("getLng", &Locator::getLng)
   ;

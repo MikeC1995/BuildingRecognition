@@ -1,5 +1,10 @@
+/*
+** Program which accepts two images and outputs images visualising
+** their matches after different stages of filtering.
+*/
+
 #include <stdio.h>
-#include "/root/server/src/lib/surf.hpp"
+#include "/root/server/src/lib/engine.hpp"
 
 using namespace cv;
 
@@ -18,30 +23,19 @@ int main( int argc, char** argv )
   }
 
   Ptr<FeatureDetector> detector;
-  createDetector(detector, "SURF");
+  createDetector(detector, "SIFT");
 
-  // Get object key points and descriptors
+  // Get object keypoints and descriptors
   std::vector<KeyPoint> objectKeypoints;
   Mat objectDescriptors;
   getKeypointsAndDescriptors(objectImage, objectKeypoints, objectDescriptors, detector);
-
-  int count = 0;
-  for(int i = 0; i < objectKeypoints.size(); i++)
-  {
-    float x = objectKeypoints.at(i).pt.x;
-    float y = objectKeypoints.at(i).pt.y;
-    if(x < 416.0 && y < 413.0 && x > 224.0 && y > 224.0 ) {
-      count++;
-    }
-    //std::cout << x << "," << y << std::endl;
-  }
-  std::cout << "COUNT = " << count << std::endl;
-  std::cout << "FULL = " << objectKeypoints.size() << std::endl;
+  rootSIFT(objectDescriptors);
 
   // Get query keypoints and descriptors
   std::vector<KeyPoint> queryKeypoints;
   Mat queryDescriptors;
   getKeypointsAndDescriptors(queryImage, queryKeypoints, queryDescriptors, detector);
+  rootSIFT(queryDescriptors);
 
   // Write keypoint visualisation images
   Mat objectKeypointsImage;

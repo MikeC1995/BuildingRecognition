@@ -1,4 +1,9 @@
-// header inclusion
+/*
+** Program which reads <number> images in a <folder-name> and matches their
+** <feature-type> descriptors using the matcher <matcher-name> loaded from disk.
+** The Image, Class, #Matches and Match time are printed to stdout.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -28,6 +33,7 @@ int main( int argc, char** argv )
   char* featureType = argv[5];
   std::string const extension = ".jpg";
 
+  // load the matcher from disk
   Recogniser r = *(new Recogniser(matcherName, featureType));
 
   struct timeval timstr;

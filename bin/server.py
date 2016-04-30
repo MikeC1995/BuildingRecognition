@@ -151,7 +151,7 @@ def sv():
 
         # iterate over mesh of lat-lngs at specified density,
         # producing SV images at each point
-        pc_change = 1.0 / (density+1) / (density+1)
+        pc_change = 1.0 / (density+1) / (density+1)     # TODO: Is this a bug? Accidental paste?
         pc_complete = 0
         lat_step = (lat1 - lat2)/density
         lng_step = (lng1 - lng2)/density
@@ -206,14 +206,6 @@ def analyse():
     dg.generate(queryFilePath, filenameFile, app.config['SV_FEATURES_FOLDER'], app.config['SV_DATA'])
     return send_file(app.config['SV_DATA'], mimetype="text/csv")
 
-@app.route('/sv/location', methods=['GET'])
-def locate2():
-    l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']);
-    lat = l.getLat()
-    lng = l.getLng()
-
-    return jsonify(lat=lat,lng=lng)
-
 ##################### PRODUCTION ROUTES ##########################
 @app.route('/place', methods=['POST', 'OPTIONS'])
 @cross_origin(origin='*')
@@ -235,10 +227,10 @@ def add_place():
             }
             db.places.insert_one(place)
         except:
-            return jsonify(success="False", message="Error adding to database!")
+            return jsonify(success="False")
         return jsonify(success=True,place=json_util.dumps(place))
     else:
-        return jsonify(success=False,message="Missing parameters!")
+        return jsonify(success=False)
 
 @app.route('/place', methods=['GET'])
 def get_place():
@@ -247,10 +239,10 @@ def get_place():
         try:
             place = db.places.find({'_id': ObjectId(_id)})
         except:
-            return jsonify(success="False", message="Error fetching from database!")
-        return jsonify(success=True,place=json_util.dumps(place))
+            return jsonify(success="False")
+        return jsonify(success=True, place=json_util.dumps(place))
     else:
-        return jsonify(success=False,message="Missing parameters!")
+        return jsonify(success=False)
 
 
 @app.route('/locate', methods=['POST'])
@@ -282,7 +274,7 @@ def locate():
         return jsonify(success=False)
 
     # locate the object in the query image and send response
-    if l.locateWithBigTree(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']):
+    if l.locate(app.config['SV_FOLDER'] + app.config['SV_QUERY'], app.config['SV_FOLDER'], app.config['SV_FOLDER'] + app.config['SV_FILENAMES']):
         lat=l.getLat()
         lng=l.getLng()
         print "Looking for places near {},{}".format(lat, lng)
@@ -294,15 +286,15 @@ def locate():
                             'type':"Point",
                             'coordinates':[lng, lat]
                         },
-                    '$maxDistance': 30
+                    '$maxDistance': 100
                     }
                 }
             })
             return jsonify(success=True,lat=l.getLat(),lng=l.getLng(),places=json_util.dumps(places))
         except:
-            return jsonify(success=False,message="Error fetching from database!")
+            return jsonify(success=False)
     else:
-        return jsonify(success=False,message="Error fetching from database!")
+        return jsonify(success=False)
 
 
 if __name__ == '__main__':
