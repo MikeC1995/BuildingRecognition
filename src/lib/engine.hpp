@@ -22,9 +22,6 @@ void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatc
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<KeyPoint> &trainingKeypoints, Mat &homography);
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &homographies);
 
-void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<std::vector<DMatch> > &matchesSet, int threshold);
-void findGoodTrainingFeatures(std::vector<std::vector<KeyPoint> > &trainingKeypoints, std::vector<Mat> &trainingDescriptors, std::vector<std::vector<KeyPoint> > &goodTrainingKeypoints, std::vector<Mat> &goodTrainingDescriptors);
-
 void drawProjection(Mat &input, Mat &homography, Mat &output);
 double calcProjectedAreaRatio(std::vector<Point2f> &objCorners, Mat &homography);
 

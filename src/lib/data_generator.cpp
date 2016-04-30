@@ -1,7 +1,6 @@
 /* Shared module to pair-wise match a query image against a set of other
 ** precomputed image descriptors, producing a csv of the data for analysis */
 
-// header inclusion
 #include <stdio.h>
 #include <cstring>
 #include <fstream>
@@ -67,11 +66,6 @@ void DataGenerator::generate(const char* img_filename, const char* filenames_fil
     file["descriptors"] >> svDescriptors;
     file["objCorners"] >> objCorners;
     std::cout << svKeypoints.size() << " " << svDescriptors.rows << "," << svDescriptors.cols << " " << objCorners.size() << std::endl;
-
-    // filename for output visualisation
-    //std::stringstream ss;
-    //ss << "ransac-matches-" << std::to_string(i) << ".jpg";
-    //std::string ransacFilename = ss.str();
 
     // Knn matching + Lowe filter
     std::vector<std::vector<DMatch> > knnmatches;

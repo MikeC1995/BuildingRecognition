@@ -1,5 +1,5 @@
 /*  Derived class of FlannBasedMatcher to facilitate saving and loading of the KD tree.
-**  Based on the solution at:
+**  Inspired by the solution at:
 **    http://stackoverflow.com/questions/9248012/saving-and-loading-flannbasedmatcher?rq=1
 **
 **  To save a FlannBasedMatcher:

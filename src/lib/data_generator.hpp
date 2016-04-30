@@ -3,7 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/features2d.hpp>
-#include "surf.hpp"
+#include "engine.hpp"
 
 #include <boost/python.hpp>
 

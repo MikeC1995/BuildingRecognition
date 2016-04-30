@@ -1,7 +1,6 @@
 /* Shared module to read an image, compute its RootSIFT keypoints and
 ** descriptors, and save them to a file */
 
-// header inclusion
 #include <stdio.h>
 #include <cstring>
 #include "feature_saver.hpp"
@@ -72,7 +71,6 @@ void FeatureSaver::saveFeatures(const char* _img_folder, const char* _img_filena
 // Read descriptors from stored SaveableFlannBasedMatchers (names given by filenames_file) and
 // build a big tree from this (one big SaveableFlannBasedMatcher), saving to disk as "bigmatcher"
 void FeatureSaver::saveBigTree(const char* filenames_filename, const char* folder) {
-  printf("saveBigTree\n");
   // Create big matcher
   Ptr<SaveableFlannBasedMatcher> bigMatcher = new SaveableFlannBasedMatcher("bigmatcher");
 

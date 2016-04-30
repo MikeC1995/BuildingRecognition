@@ -3,7 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/features2d.hpp>
-#include "surf.hpp"
+#include "engine.hpp"
 #include "saveable_matcher.hpp"
 
 #include <boost/python.hpp>
@@ -18,7 +18,6 @@ public:
   Locator();
 
   bool locate(const char* img_filename, const char* _imgs_folder, const char* filenames_filename);
-  void locateCsv(const char* data_filename);
 
   double getLat();
   double getLng();

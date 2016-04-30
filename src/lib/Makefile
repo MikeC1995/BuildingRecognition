@@ -10,7 +10,7 @@ CPPFLAGS = -std=c++11 -fopenmp
 CPPFLAGS += $(shell pkg-config --cflags opencv)
 
 # OpenCV libraries to link:
-LIBS = surf.cpp
+LIBS = engine.cpp
 LIBS += saveable_matcher.cpp
 LIBS += $(shell pkg-config --libs opencv)
 

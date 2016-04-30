@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include "saveable_matcher.hpp"
-#include "surf.hpp"
+#include "engine.hpp"
 
 #include <boost/python.hpp>
 

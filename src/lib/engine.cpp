@@ -1,11 +1,10 @@
 /////////////////////////////////////////////////////////////////////////////
 //
-// Individual Project
-// Detect and display features in image
+// Identisnap
+// Vision engine
 //
 /////////////////////////////////////////////////////////////////////////////
 
-// header inclusion
 #include <stdio.h>
 #include <string>
 #include "engine.hpp"
@@ -28,7 +27,7 @@ void createDetector(Ptr<FeatureDetector> &detector, std::string type)
   }
 }
 
-/* Us a feature detector to calculate keypoints and
+/* Use a feature detector to calculate keypoints and
 ** descriptors for the input image.
 */
 /* Single image.
@@ -39,7 +38,6 @@ void getKeypointsAndDescriptors(Mat &image, std::vector<KeyPoint> &keypoints, Ma
 {
   detector->detectAndCompute(image, noArray(), keypoints, descriptors, false);
 }
-
 /* Multiple images.
 **  In:   images
 **  Out:  keypoints, descriptors
@@ -49,7 +47,6 @@ void getKeypointsAndDescriptors(std::vector<Mat> &images, std::vector<std::vecto
   detector->detect(images, keypoints);
   detector->compute(images, keypoints, descriptors);
 }
-
 /* Single query image, multiple training images.
 **  In:   queryImage, trainingImages, detector
 **  Out:  queryKeypoints, queryDescriptors, trainingKeypoints, trainingDescriptors
@@ -69,9 +66,9 @@ void getKeypointsAndDescriptors(Mat &queryImage, std::vector<KeyPoint> &queryKey
 void rootSIFT(cv::Mat& descriptors)
 {
   // Compute sums for L1 Norm
-  cv::Mat sums_vec;
-  descriptors = cv::abs(descriptors); //otherwise we draw sqrt of negative vals
-  cv::reduce(descriptors, sums_vec, 1 /*sum over columns*/, CV_REDUCE_SUM, CV_32FC1);
+  Mat sums_vec;
+  descriptors = abs(descriptors); //otherwise we draw sqrt of negative vals
+  reduce(descriptors, sums_vec, 1 /*sum over columns*/, CV_REDUCE_SUM, CV_32FC1);
   for(unsigned int row = 0; row < descriptors.rows; row++) {
     int offset = row*descriptors.cols;
     for(unsigned int col = 0; col < descriptors.cols; col++) {
@@ -140,22 +137,23 @@ void loweFilter(std::vector<std::vector<DMatch> > &knnMatches, std::vector<DMatc
 */
 /* 1D vector of query and training keypoints.
 **
-**    TODO: matches size < 4 cannot compute homography matrix... handle this!
 **    In:   matches, queryKeypoints, trainingKeypoints
 **    Out:  matches, homography
 */
 void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeypoints, std::vector<KeyPoint> &trainingKeypoints, Mat &homography)
 {
+  if(matches.size() < 4) return;  // cannot compute homography with < 4 points
   std::vector<Point2f> queryCoords;
   std::vector<Point2f> trainingCoords;
 
+  //Get the coords of the keypoints from the matches
   for(int i = 0; i < matches.size(); i++)
   {
-    //Get the coords of the keypoints from the matches
     queryCoords.push_back(queryKeypoints.at(matches.at(i).queryIdx).pt);
     trainingCoords.push_back(trainingKeypoints.at(matches.at(i).trainIdx).pt);
   }
 
+  // Keep the inlier matches
   Mat outputMask;
   homography = findHomography(queryCoords, trainingCoords, CV_RANSAC, 3, outputMask);
   int inlierCounter = 0;
@@ -219,52 +217,8 @@ void ransacFilter(std::vector<DMatch> &matches, std::vector<KeyPoint> &queryKeyp
         good_matches.push_back(matches[i]);
       }
     }
-    printf("Inliers/Outliers = %d/%d, i.e. %fpc\n", inlierCounter, outputMask.rows, (((float)inlierCounter / (float)outputMask.rows * 100)));
   }
   matches = good_matches;
-}
-
-/*  Filter a list of query keypoints + descriptors such that each keypoint must
-**  be in at least <threshold> matches across all training images.
-**
-**    In:   queryKeypoints, queryDescriptors, matchesSet, threshold
-**    Out:  queryKeypoints, queryDescriptors
-*/
-void findGoodFeatures(std::vector<KeyPoint> &queryKeypoints, Mat &queryDescriptors, std::vector<std::vector<DMatch> > &matchesSet, int threshold)
-{
-  //Entry i of countArray corresponds to keypoint i, and counts the number of matches that keypoint is in.
-  int* countArray = (int*) calloc(queryKeypoints.size(), sizeof(int));
-  for(int i = 0; i < matchesSet.size(); i++)  //for each set of matches (1 per training image)
-  {
-    for(int j = 0; j < matchesSet.at(i).size(); j++)  //for each match in this set
-    {
-      countArray[matchesSet.at(i).at(j).queryIdx]++;
-    }
-  }
-
-  std::vector<KeyPoint> goodKeypoints;
-  for(int i = 0; i < queryKeypoints.size(); i++)
-  {
-    if(countArray[i] >= threshold)
-    {
-      goodKeypoints.push_back(queryKeypoints.at(i));
-    }
-  }
-
-  Mat goodDescriptors;
-  goodDescriptors.create(goodKeypoints.size(), queryDescriptors.cols, queryDescriptors.type());
-  int nextEmptyRow = 0;
-  for(int i = 0; i < queryKeypoints.size(); i++)
-  {
-    if(countArray[i] >= threshold)
-    {
-      queryDescriptors.row(i).copyTo(goodDescriptors.row(nextEmptyRow));
-      nextEmptyRow++;
-    }
-  }
-
-  queryKeypoints = goodKeypoints;
-  queryDescriptors = goodDescriptors;
 }
 
 /* Consider the bounding box of input image as the object.
