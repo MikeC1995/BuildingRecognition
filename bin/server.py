@@ -102,7 +102,6 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
             url += ('&key={}'.format(key))
 
             filename = '{},{},{},{}'.format(lat,lng,heading,pitch)
-
             # Get the image, stream it to file
             r = requests.get(url,stream=True)
             if r.status_code == 200:
@@ -115,10 +114,11 @@ def saveSVImagesAndFeatures(lat,lng,theta,f_saver,filenameFile):
                 # if first pixel is "no image" grey then no SV data at this location
                 # so delete image and return
                 if im.load()[0,0] == (228,227,223):
-                    # print "...no imagery"
+                    print "...no imagery"
                     os.remove(app.config['SV_FOLDER'] + filename + '.jpg')
                     return
                 else:
+                    print filename
                     filenameFile.write(filename + '\n')
                     if(i == 0 and pitch == 10):
                         img_filenames += (filename + '.jpg');
@@ -170,8 +170,7 @@ def sv():
             fileHandle = open(app.config['SV_FOLDER'] + app.config['SV_LOCATIONS_FILENAME'], 'r')
             line = fileHandle.readline()
             locations = line.split(':')
-            print len(locations)
-            locations = set(locations)
+            locations = set(locations)  # ensure locations are unique
             print len(locations)
             for idx, location in enumerate(locations):
                 print "{}%".format((float(idx)/len(locations))*100)

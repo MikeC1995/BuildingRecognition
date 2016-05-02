@@ -13,7 +13,7 @@
 using namespace cv;
 using namespace boost::python;
 
-#define PROFILE_LOCATE 1
+//#define PROFILE_LOCATE 1
 
 double nfmod(double a, double b)
 {
@@ -131,7 +131,7 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
   std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
 
   // Take the top 30 of these highest-matched images
-  if(vpTable.size() > 30) vpTable.resize(30);
+  if(vpTable.size() > 50) vpTable.resize(50);
 
 #ifdef PROFILE_LOCATE
   // Time prep vp table
@@ -228,18 +228,19 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
       distinctVpTable.push_back(vpTable.at(distinctViewIdxs.at(j)));
     }
   }
+  vpTable = distinctVpTable;
 
   // If there are no distinct views with sufficient matches, we fail to locate the query
-  if(distinctVpTable.size() == 0)
+  if(vpTable.size() == 0)
   {
     return false;
   }
 
   // If there's only one distinct viewpoint, use the viewpoint location as the prediction
-  if(distinctVpTable.size() == 1)
+  if(vpTable.size() == 1)
   {
-    lat = stod(distinctVpTable.at(0).lat);
-    lng = stod(distinctVpTable.at(0).lng);
+    lat = stod(vpTable.at(0).lat);
+    lng = stod(vpTable.at(0).lng);
     return true;
   }
 
@@ -247,19 +248,28 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
   std::vector<Viewpoint> v1s;
   std::vector<Viewpoint> v2s;
   std::vector<long> num_matches;
-  for(int i = 0; i < distinctVpTable.size(); i++)
+  for(int i = 0; i < vpTable.size(); i++)
   {
     #pragma omp parallel for
-    for(int j = i + 1; j < distinctVpTable.size(); j++)
+    for(int j = i + 1; j < vpTable.size(); j++)
     {
       matches.clear();
-      Viewpoint v1 = distinctVpTable.at(i);
-      Viewpoint v2 = distinctVpTable.at(j);
+      Viewpoint v1 = vpTable.at(i);
+      Viewpoint v2 = vpTable.at(j);
       getFilteredMatches(v1.image, v1.keypoints, v1.descriptors, v2.keypoints, v2.descriptors, matches);
       v1s.push_back(v1);
       v2s.push_back(v2);
       num_matches.push_back(matches.size());
     }
+  }
+
+  // Write shortlisted viewpoints to disk for review
+  for(int i = 0; i < vpTable.size(); i++)
+  {
+    //std::cout << vpTable.at(i).lat << "," << vpTable.at(i).lng << std::endl << std::endl;
+    std::stringstream ss;
+    ss << "viewpoint" << i << ".jpg";
+    imwrite(ss.str(), vpTable.at(i).image);
   }
 
   // Compute the intersections of each pair
@@ -295,6 +305,8 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
       lngs.push_back(x3);
       lats.push_back(y3);
       weights.push_back((double)(num_matches.at(i)));
+
+      //std::cout << v1s.at(i).lat << "," << v1s.at(i).lng << std::endl << v2s.at(i).lat << "," << v2s.at(i).lng << std::endl << v1s.at(i).heading << " " << v2s.at(i).heading << " " << num_matches.at(i) << std::endl;
     }
   }
 
