@@ -247,19 +247,37 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
   // Match each SV image against the others
   std::vector<Viewpoint> v1s;
   std::vector<Viewpoint> v2s;
-  std::vector<long> num_matches;
+  std::vector<std::vector<DMatch> > matchesVector;
   for(int i = 0; i < vpTable.size(); i++)
   {
-    #pragma omp parallel for
+    #pragma omp parallel for shared(v1s, v2s, matchesVector)
     for(int j = i + 1; j < vpTable.size(); j++)
     {
-      matches.clear();
+      std::vector<DMatch> vmatches;
       Viewpoint v1 = vpTable.at(i);
       Viewpoint v2 = vpTable.at(j);
-      getFilteredMatches(v1.image, v1.keypoints, v1.descriptors, v2.keypoints, v2.descriptors, matches);
-      v1s.push_back(v1);
-      v2s.push_back(v2);
-      num_matches.push_back(matches.size());
+      getFilteredMatches(v1.image, v1.keypoints, v1.descriptors, v2.keypoints, v2.descriptors, vmatches);
+      std::vector<int> removeMatchIdxs;
+      for(int m = 0; m < vmatches.size(); m++)
+      {
+        if(v1.keypoints.at(vmatches.at(m).queryIdx).pt.y > 610 && v2.keypoints.at(vmatches.at(m).trainIdx).pt.y > 610) {
+          removeMatchIdxs.push_back(m);
+        }
+      }
+      for(int m = 0; m < removeMatchIdxs.size(); m++)
+      {
+        vmatches.erase(vmatches.begin() + removeMatchIdxs.at(m));
+      }
+
+      if(vmatches.size() > 10)
+      {
+        #pragma omp critical
+        {
+          v1s.push_back(v1);
+          v2s.push_back(v2);
+          matchesVector.push_back(vmatches);
+        }
+      }
     }
   }
 
@@ -285,8 +303,31 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
     double y1 = stod(v1s.at(i).lat);
     double y2 = stod(v2s.at(i).lat);
 
-    double alpha1 = stod(v1s.at(i).heading);
-    double alpha2 = stod(v2s.at(i).heading);
+    //double alpha1 = stod(v1s.at(i).heading);
+    //double alpha2 = stod(v2s.at(i).heading);
+
+    // Get average x coordinate of feature points in each image
+    double avg_x1 = 0.0;
+    double avg_x2 = 0.0;
+    for(int k = 0; k < matchesVector.at(i).size(); k++)
+    {
+      avg_x1 += v1s.at(i).keypoints.at(matchesVector.at(i).at(k).queryIdx).pt.x;
+    }
+    for(int k = 0; k < matchesVector.at(i).size(); k++)
+    {
+      avg_x2 += v2s.at(i).keypoints.at(matchesVector.at(i).at(k).trainIdx).pt.x;
+    }
+    avg_x1 /= (double)(matchesVector.at(i).size());
+    avg_x2 /= (double)(matchesVector.at(i).size());
+
+    //double alpha1 = stod(v1s.at(i).heading) + 20.0 * (avg_x1/(double)(v1s.at(i).image.cols));
+    //double alpha2 = stod(v2s.at(i).heading) + 20.0 * (avg_x2/(double)(v2s.at(i).image.cols));
+
+    double alpha1 = stod(v1s.at(i).heading) + 10.0 * ((2 * avg_x1)/(double)(v1s.at(i).image.cols) - 1);
+    double alpha2 = stod(v2s.at(i).heading) + 10.0 * ((2 * avg_x2)/(double)(v2s.at(i).image.cols) - 1);
+    std::cout << alpha1 << "," << alpha2 << std::endl;
+
+
     double beta1 = nfmod(90.0 - alpha1, 360.0);
     double beta2 = nfmod(90.0 - alpha2, 360.0);
 
@@ -304,9 +345,16 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
       mean_lat += y3;
       lngs.push_back(x3);
       lats.push_back(y3);
-      weights.push_back((double)(num_matches.at(i)));
+      weights.push_back((double)(matchesVector.at(i).size()));
 
-      //std::cout << v1s.at(i).lat << "," << v1s.at(i).lng << std::endl << v2s.at(i).lat << "," << v2s.at(i).lng << std::endl << v1s.at(i).heading << " " << v2s.at(i).heading << " " << num_matches.at(i) << std::endl;
+      // Write match images to disk
+      Mat img_matches;
+      std::stringstream ss;
+      ss << "svmatches" << i << ".jpg";
+      drawMatches(v1s.at(i).image, v1s.at(i).keypoints, v2s.at(i).image, v2s.at(i).keypoints, matchesVector.at(i), img_matches);
+      imwrite(ss.str(), img_matches);
+      std::cout << "Mean " << i << " = " << avg_x1 << "," << avg_x2 << std::endl;
+      //std::cout << v1s.at(i).lat << "," << v1s.at(i).lng << std::endl << v2s.at(i).lat << "," << v2s.at(i).lng << std::endl << y3 << "," << x3 << std::endl << matchesVector.at(i).size() << std::endl;
     }
   }
 
