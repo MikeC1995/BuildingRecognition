@@ -190,6 +190,15 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
   // Sort the vpTable again according to these new votes
   std::sort(vpTable.begin(), vpTable.end(), &vote_sorter);
 
+  std::cout << vpTable.at(0).votes << std::endl;
+
+  // If best SV image only has 15 matches with query, probably spurious,
+  // so we cannot locate.
+  if(vpTable.at(0).votes < 15)
+  {
+    return false;
+  }
+
 #ifdef PROFILE_LOCATE
   // Time prep rigourous match
   t2 = std::chrono::high_resolution_clock::now();
@@ -348,12 +357,12 @@ bool Locator::locate(const char* img_filename, const char* _imgs_folder, const c
       weights.push_back((double)(matchesVector.at(i).size()));
 
       // Write match images to disk
-      Mat img_matches;
-      std::stringstream ss;
-      ss << "svmatches" << i << ".jpg";
-      drawMatches(v1s.at(i).image, v1s.at(i).keypoints, v2s.at(i).image, v2s.at(i).keypoints, matchesVector.at(i), img_matches);
-      imwrite(ss.str(), img_matches);
-      std::cout << "Mean " << i << " = " << avg_x1 << "," << avg_x2 << std::endl;
+      //Mat img_matches;
+      //std::stringstream ss;
+      //ss << "svmatches" << i << ".jpg";
+      //drawMatches(v1s.at(i).image, v1s.at(i).keypoints, v2s.at(i).image, v2s.at(i).keypoints, matchesVector.at(i), img_matches);
+      //imwrite(ss.str(), img_matches);
+      //std::cout << "Mean " << i << " = " << avg_x1 << "," << avg_x2 << std::endl;
       //std::cout << v1s.at(i).lat << "," << v1s.at(i).lng << std::endl << v2s.at(i).lat << "," << v2s.at(i).lng << std::endl << y3 << "," << x3 << std::endl << matchesVector.at(i).size() << std::endl;
     }
   }
